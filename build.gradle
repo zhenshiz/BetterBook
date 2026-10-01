@@ -1,0 +1,267 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+    id 'idea'
+    id 'net.neoforged.moddev' version '2.0.82'
+    id 'io.freefair.lombok' version '8.6'
+}
+
+version = mod_version
+group = mod_group_id
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+
+    //kubejs
+    maven {
+        name = "Latvian"
+        url = "https://maven.latvian.dev/releases"
+        content {
+            includeGroup "dev.latvian.mods"
+            includeGroup "dev.latvian.apps"
+        }
+    }
+    maven {
+        name = "JitPack"
+        url = "https://jitpack.io"
+        content {
+            includeGroup "com.github.rtyley"
+        }
+    }
+
+    // LDLib2
+    maven {
+        name = "FirstDark"
+        url = "https://maven.firstdark.dev/snapshots"
+        content {
+            includeGroup "com.lowdragmc.ldlib2"
+        }
+    }
+
+    // JEI
+    maven {
+        name = "BlameJared"
+        url = "https://maven.blamejared.com"
+        content {
+            includeGroup "mezz.jei"
+        }
+    }
+
+    //Modrinth
+    maven {
+        name = "Modrinth"
+        url = "https://api.modrinth.com/maven"
+    }
+
+    maven {
+        url "https://maven.sighs.cc/repository/maven-public/"
+    }
+}
+
+base {
+    archivesName = "${mod_name}-neoforge-${minecraft_version}"
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+configurations {
+    create("mixinAgent") {
+        canBeConsumed = false
+        canBeResolved = true
+        defaultDependencies {
+            add(dependencyFactory.create("dev.vfyjxf:mixin-hotswap-agent:1.1").setTransitive(false))
+        }
+    }
+}
+
+
+neoForge {
+    version = project.neo_version
+
+    parchment {
+        mappingsVersion = project.parchment_mappings_version
+        minecraftVersion = project.parchment_minecraft_version
+    }
+
+    runs {
+        client {
+            client()
+
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
+        client2 {
+            client()
+
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            programArgument '--username'
+            programArgument 'zhenshiz'
+        }
+
+        server {
+            server()
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
+        gameTestServer {
+            gameDirectory = file('run-servertest')
+            type = "gameTestServer"
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
+        data {
+            data()
+            programArguments.addAll '--mod', project.mod_id, '--all', '--output', file('src/generated/resources/').getAbsolutePath(), '--existing', file('src/main/resources/').getAbsolutePath()
+        }
+
+        configureEach {
+            if (providers.gradleProperty('enable_hotswap').map { it.toBoolean() }.getOrElse(false)) {
+                jvmArgument '-javaagent:' + configurations.mixinAgent.singleFile.toPath()
+                jvmArguments.addAll '-XX:+AllowEnhancedClassRedefinition', '-XX:HotswapAgent=fatjar'
+            }
+
+
+            logLevel = org.slf4j.event.Level.INFO
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet(sourceSets.main)
+        }
+    }
+}
+
+sourceSets.main.resources { srcDir 'src/generated/resources' }
+
+def includeAuthoringMods = providers.gradleProperty('include_authoring_mods')
+        .map { it.toBoolean() }
+        .getOrElse(true)
+
+dependencies {
+    implementation 'org.scilab.forge:jlatexmath:1.0.7'
+    jarJar 'org.scilab.forge:jlatexmath:1.0.7'
+    jarJar 'org.scilab.forge:jlatexmath-font-greek:1.0.7'
+    jarJar 'org.scilab.forge:jlatexmath-font-cyrillic:1.0.7'
+    additionalRuntimeClasspath 'org.scilab.forge:jlatexmath:1.0.7'
+    implementation 'org.jsoup:jsoup:1.23.2'
+    jarJar 'org.jsoup:jsoup:1.23.2'
+    additionalRuntimeClasspath 'org.jsoup:jsoup:1.23.2'
+    implementation 'com.fifesoft:rsyntaxtextarea:4.0.1'
+    jarJar 'com.fifesoft:rsyntaxtextarea:4.0.1'
+    additionalRuntimeClasspath 'com.fifesoft:rsyntaxtextarea:4.0.1'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    // Functional local mods. Root-level JARs remain supported for compatibility.
+    implementation fileTree(dir: 'libs', include: ['*.jar', 'runtime/**/*.jar'])
+
+    // Map-authoring mods are available at runtime only and can be disabled for testing.
+    if (includeAuthoringMods) {
+        runtimeOnly fileTree(dir: 'libs/authoring', include: ['**/*.jar'])
+    }
+
+    // LDLib2
+    implementation "com.lowdragmc.ldlib2:ldlib2-neoforge-${minecraft_version}:${ldlib2_version}:all"
+    implementation("com.zhenshiz:ViScriptLib-neoforge-${minecraft_version}:${viscriptlib_version}") {
+        transitive = false
+    }
+    jarJar("com.zhenshiz:ViScriptLib-neoforge-${minecraft_version}:${viscriptlib_version}") {
+        transitive = false
+    }
+
+    // KubeJS
+    runtimeOnly "dev.latvian.mods:rhino:${rhino_version}"
+    runtimeOnly "dev.latvian.mods:kubejs-neoforge:${kubejs_version}"
+
+    // 开发客户端辅助模组不进入生产编译依赖。
+    runtimeOnly "maven.modrinth:sodium:${sodium_version}"
+    runtimeOnly "maven.modrinth:iris:${iris_version}"
+    runtimeOnly "maven.modrinth:lan-server-properties:${lsp_version}"
+    compileOnly "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
+    if (providers.gradleProperty('include_jei').map { it.toBoolean() }.getOrElse(true)) {
+        runtimeOnly "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
+    }
+
+
+}
+
+tasks.named('test', Test) { useJUnitPlatform() }
+
+// 回归场景和历史兼容性夹具仅用于开发，不随模组发布。
+tasks.named('jar', Jar) {
+    exclude 'com/zhenshiz/betterbook/uitest/**'
+    exclude 'com/zhenshiz/betterbook/gametest/**'
+    exclude 'assets/betterbook/test/**'
+    exclude 'data/betterbook/structure/empty.nbt'
+}
+apply from: rootProject.file('gradle/ldlib2-uitest.gradle')
+
+tasks.withType(ProcessResources).configureEach {
+    var replaceProperties = [minecraft_version      : minecraft_version,
+                             minecraft_version_range: minecraft_version_range,
+                             neo_version            : neo_version,
+                             ldlib2_version         : ldlib2_version,
+                             viscriptlib_version    : viscriptlib_version,
+                             loader_version_range   : loader_version_range,
+                             mod_id                 : mod_id,
+                             mod_name               : mod_name,
+                             mod_license            : mod_license,
+                             mod_version            : mod_version,
+                             mod_authors            : mod_authors,
+                             mod_description        : mod_description]
+    inputs.properties replaceProperties
+
+    filesMatching(['META-INF/neoforge.mods.toml']) {
+        expand replaceProperties
+    }
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+
+            groupId = project.group
+            artifactId = base.archivesName.get()
+            version = project.version
+
+            pom.withXml {
+                def dependenciesNode = asNode().getAt("dependencies")[0]
+                if (dependenciesNode != null) {
+                    // 模组依赖由 neoforge.mods.toml 声明，嵌入库由 Jar-in-Jar 提供。
+                    dependenciesNode.children().toList().each { dependenciesNode.remove(it) }
+                }
+            }
+        }
+    }
+
+    repositories {
+        def modVersion = project.findProperty('mod_version') ?: 'unknown'
+
+        boolean isSnapshot = modVersion.toLowerCase().contains('snapshot')
+
+        def publishUrl = isSnapshot ?
+                "https://maven.sighs.cc/repository/maven-snapshots/" :
+                "https://maven.sighs.cc/repository/maven-releases/"
+
+        def publishUser = System.getenv("SIGHS_PUBLISH_USER")
+        def publishPassword = System.getenv("SIGHS_PUBLISH_PASSWORD")
+
+        maven {
+            name = "remoteRepo"
+            url = uri(publishUrl)
+            credentials {
+                username = publishUser
+                password = publishPassword
+            }
+        }
+    }
+}
+
+idea {
+    module {
+        downloadSources = true
+        downloadJavadoc = true
+    }
+}

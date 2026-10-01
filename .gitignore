@@ -1,0 +1,19 @@
+# Gradle 和 IDE
+.gradle/
+.idea/
+build/
+*.iml
+
+# 本地游戏运行目录（包含存档及用户制作的文件）
+run/
+run-uitest/
+run-servertest/
+
+# 系统、日志和临时文件
+.DS_Store
+__pycache__/
+*.class
+*.log
+hs_err_pid*
+replay_pid*
+tools

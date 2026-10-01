@@ -1,0 +1,83 @@
+.book_cover {
+    background: #493324;
+}
+.book_paper {
+    background: #efe4c7;
+}
+.book_paper .book_document {
+    text-color: #362a21;
+}
+.book_caption {
+    text-color: #eee0be;
+}
+.book-reader-page-number { text-color: #79603e; }
+.book-reader-arrow { hover-overlay: #00000000; }
+.book-reader-arrow-disabled { opacity: 0.3; }
+#reader-previous {
+    base-background: vanilla-sprite(minecraft:widget/page_backward);
+    hover-background: vanilla-sprite(minecraft:widget/page_backward_highlighted);
+    pressed-background: vanilla-sprite(minecraft:widget/page_backward_highlighted);
+}
+#reader-next {
+    base-background: vanilla-sprite(minecraft:widget/page_forward);
+    hover-background: vanilla-sprite(minecraft:widget/page_forward_highlighted);
+    pressed-background: vanilla-sprite(minecraft:widget/page_forward_highlighted);
+}
+#reader-back {
+    base-background: sprite(betterbook:textures/gui/editor/undo.png) color(#80542c);
+    hover-background: sprite(betterbook:textures/gui/editor/undo.png) color(#bb7c3a);
+    pressed-background: sprite(betterbook:textures/gui/editor/undo.png) color(#bb7c3a);
+}
+.book-item-slot {
+    background: rect(#f5ecd6);
+    overlay: border(-1, #b59c70);
+    hover-overlay: #407f6137;
+}
+.book-item-line {
+    background: #b59c70;
+}
+.book-entity-scene {
+    background: #efe4c7;
+    overlay: border(-1, #b59c70);
+}
+.book-entity-error {
+    text-color: #914b38;
+}
+
+.book-structure-scene {
+  background: #efe4c7;
+  overlay: border(-1, #b59c70);
+}
+
+.book-recipe-canvas {
+    background: #efe4c7;
+}
+.book-recipe-editable {
+    overlay: border(-1, #b59c70);
+}
+.book-recipe-hint {
+    text-color: #806742;
+}
+.book-recipe-part.book-recipe-selected {
+    overlay: border(-1, #96703d);
+}
+
+.book-related-button {
+    base-background: #00efe4c7;
+    pressed-background: rect(#d9c496);
+    hover-background: rect(#e4d2a8);
+    hover-overlay: border(-1, #96703d);
+    text-color: #362a21;
+}
+.book-related-name { text-color: #362a21; }
+.book-related-button:hover .book-related-name { text-color: #79562c; }
+.book-related-button.book-related-selected {
+    base-background: rect(#e2cfa3);
+    overlay: border(-1, #96703d);
+}
+.book-related-button.book-related-missing { opacity: 0.5; }
+.book-related-button.book-related-drop { overlay: border(-2, #96703d); }
+.book-related-title { text-color: #79603e; }
+.book-related-line { background: #b59c70; }
+.book-related-hint { text-color: #806742; }
+.book-related-destination { overlay: border(-1, #96703d); }

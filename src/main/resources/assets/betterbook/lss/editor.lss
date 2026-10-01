@@ -1,0 +1,47 @@
+.book-toolbar {
+    background: built-in(ui-ore:BORDER_5);
+}
+.book-tool {
+    base-background: #00000000;
+    hover-background: rect(#666b6e, 2);
+    pressed-background: rect(#557047, 2);
+}
+.book-tool.__selected__ {
+    base-background: rect(#557047, 2);
+}
+#book-toolbar .book-mode {
+    base-background: #00000000;
+    hover-background: #666b6e;
+    pressed-background: rect(#a8df85) scale(1, 0.06) translate(0, 12);
+}
+#book-toolbar .book-mode-label {
+    text-color: #e7eef5;
+    text-shadow: false;
+}
+#book-toolbar .book-mode.__selected__ .__tab_text__ {
+    text-color: #a8df85;
+}
+.book-divider {
+    background: #8b8d90;
+}
+.book-bubble {
+    background: built-in(ui-ore:BORDER_5);
+    z-index: 0;
+}
+#link-editor .__button_text__ {
+    color: #ffffff;
+    text-color: #e7eef5;
+    text-shadow: false;
+}
+.book-page {
+    base-background: #00000000;
+    hover-background: rect(#636969, 2);
+    pressed-background: rect(#4d6553, 2);
+}
+.book-page.__selected__ {
+    base-background: rect(#4d6553, 2);
+}
+#book-pages-view .book-page-label {
+    text-color: #f3f3f3;
+    text-shadow: false;
+}
