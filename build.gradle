@@ -190,6 +190,9 @@ tasks.named('test', Test) { useJUnitPlatform() }
 
 // 回归场景和历史兼容性夹具仅用于开发，不随模组发布。
 tasks.named('jar', Jar) {
+    from(rootProject.file('LICENSE')) {
+        into 'META-INF'
+    }
     exclude 'com/zhenshiz/betterbook/uitest/**'
     exclude 'com/zhenshiz/betterbook/gametest/**'
     exclude 'assets/betterbook/test/**'

@@ -214,3 +214,9 @@ Java 扩展通过 `BookExtension` 和 LDLib2 注解发现，可以贡献节点�
 需要热替换时，使用支持相应参数的 JBR / DCEVM 并传入 `-Penable_hotswap=true`；普通 Java 21 启动无需这些 JVM 参数。
 
 [当前验证结果](docs/validation.md) · [项目审查记录](docs/review.md)
+
+## 许可证
+
+BetterBook 采用 **GNU General Public License v3.0（GPL-3.0-only）**。完整协议见 [LICENSE](LICENSE)。
+
+随构建产物嵌入的第三方库及字体保留各自的许可证声明，本项目的许可证不替代这些声明。
