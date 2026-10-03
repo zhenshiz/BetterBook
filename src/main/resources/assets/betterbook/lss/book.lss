@@ -12,7 +12,8 @@
 }
 .book-reader-page-number { text-color: #79603e; }
 .book-reader-arrow { hover-overlay: #00000000; }
-.book-reader-arrow-disabled { opacity: 0.3; }
+/* 直接淡化颜色，避免 opacity 离屏合成留下预乘透明度的混合状态。 */
+.book-reader-arrow-disabled { color: #4dffffff; }
 #reader-previous {
     base-background: vanilla-sprite(minecraft:widget/page_backward);
     hover-background: vanilla-sprite(minecraft:widget/page_backward_highlighted);
@@ -81,3 +82,10 @@
 .book-related-line { background: #b59c70; }
 .book-related-hint { text-color: #806742; }
 .book-related-destination { overlay: border(-1, #96703d); }
+
+.book-structure-project {
+    base-background: rect(#d9c496);
+    hover-background: rect(#e4d2a8);
+    pressed-background: rect(#c4aa76);
+    overlay: border(-1, #96703d);
+}

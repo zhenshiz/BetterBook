@@ -115,7 +115,8 @@ public final class StandardSchema {
                         "div[data-type=structure]",
                         ATOM,
                         "<div data-type='structure' data-structure-file=''"
-                                + " data-structure-ortho='false'></div>"));
+                            + " data-structure-ortho='false' data-structure-projectable='false'"
+                            + " data-structure-projection-editable='false'></div>"));
         s.node(
                 new Schema.NodeSpec(
                         "betterbook:recipe",

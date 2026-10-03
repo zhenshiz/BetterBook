@@ -11,8 +11,12 @@ class StructureNodeTest {
         session.importHtml(
                 "<p>before</p><div data-type='structure'"
                         + " data-structure-file='server:folder/castle.litematic'"
-                        + " data-structure-ortho='true'></div><p>after</p>");
+                        + " data-structure-ortho='true' data-structure-projectable='true'"
+                        + " data-structure-projection-editable='false'></div><p>after</p>");
         var original = session.document().html();
+        var structure = session.document().body().selectFirst("div[data-type=structure]");
+        assertEquals("true", structure.attr("data-structure-projectable"));
+        assertEquals("false", structure.attr("data-structure-projection-editable"));
         assertTrue(session.document().blocks().get(1).atom());
         session.draft(session.source());
         session.applySources();

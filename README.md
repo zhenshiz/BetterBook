@@ -1,270 +1,128 @@
 # BetterBook · 更好的书
 
-**在 Minecraft 中直接编写、排版和发布交互式手册。**
+BetterBook 是面向 Minecraft 整合包作者、模组开发者和服务器管理员的游戏内手册模组。你可以在游戏里制作带有排版、图片、物品、配方、模型和图表的书页，把成书交给玩家，或放在讲台上供大家阅读。多方块结构还能投射到世界中，帮助玩家逐块搭建机器。
 
-BetterBook 为整合包作者、服务器管理员和模组开发者提供所见即所得的书籍编辑器。你可以像编辑文档一样写教程，把物品、实体、结构模型和配方放进书页，再用一本物品或一座讲台把手册交给玩家。
+当前面向 **Minecraft 1.21.1 / NeoForge**。
 
-阅读器采用原版风格的双页书本，支持独立滚动、图标翻页、目录跳转和返回。编辑区使用同一套纸张与内容渲染，让创作时看到的效果更接近成书。
+## 主要功能
 
-![双页示例手册](docs/images/example-contents.png)
-
-## 可以用它做什么
-
-| 内容 | 功能 |
+| 内容 | 能做什么 |
 | --- | --- |
-| 教程与指南 | H1–H4 标题、段落、对齐、引用、列表、表格、分隔线 |
-| 富文本 | 粗体、斜体、删除线、上下标、行内代码、文字颜色、隐藏文字 |
-| 数学公式 | LaTeX 公式块、模板参数编辑、源码输入、实时预览、字号与颜色 |
-| 图表 | Mermaid 流程图、时序图、甘特图、类图、状态图、ER 图、饼图、思维导图与时间线；实时预览、类型模板、双击放大 |
-| 交互式说明 | 信息 / 警告 / 重要提示、步骤切换、任务勾选、关联页面图标组 |
-| 代码与图片 | 多语言代码高亮、行号、复制与折叠；资源图片、HTTP(S) 图片、剪贴板和内嵌图片 |
-| Minecraft 内容 | 物品槽与物品数据组件；实体 ID + NBT 的可旋转模型 |
-| 多方块结构 | 原版 `.nbt` 与 Forgematica `.litematic` 文件，Scene 镜头旋转、缩放和正交显示 |
-| 配方 | 拖放物品槽、箭头、资源图片和物品图标；可选 JEI 原生配方界面 |
-| 页面动作 | 书内跳转、外部链接、以点击者身份执行的服务端指令 |
-| 多语言 | 共用页面顺序与稳定 ID，各语言独立正文；缺少译文时回退默认语言 |
+| 书页排版 | 标题、段落、引用、列表、待办事项、表格、分隔线，以及粗体、斜体、颜色、上下标和隐藏文字 |
+| 交互内容 | 提示框、分步说明、书内页面跳转、关联页面图标、外部链接，以及由服务端处理的点击指令 |
+| 图片与代码 | 资源包图片、HTTP(S) 图片、剪贴板图片；带高亮、行号和复制功能的代码块 |
+| 游戏内容 | 展示物品及其数据组件、可旋转的实体模型、可编辑的配方画布和可选的 JEI 配方视图 |
+| 数学与图表 | LaTeX 公式编辑器，以及在书页内显示的 Mermaid 风格图表 |
+| 多方块结构 | 在书页中旋转和缩放结构预览；按作者设置将结构投射到世界，显示缺块、错块和完成进度 |
+| 多语言 | 多种语言共用页面顺序，每种语言可写独立正文；缺少译文时使用默认语言内容 |
 
-编辑器支持撤销 / 重做、HTML 源码编辑与自动换行、选区浮动工具栏，以及右侧按当前组件切换的属性表单。已有配方组件可直接拖动调整位置；选中组件时只显示对应设置。
+编辑器提供可视化排版、HTML 源码编辑、撤销与重做、页面管理和组件属性面板。阅读器使用双页书本界面，支持翻页、页面跳转和返回；编辑时的预览沿用书页的纸张外观。
 
-## 安装
+### 公式与图表
 
-本项目当前验证环境：
+LaTeX 编辑器提供常用符号、希腊字母、分数、根式、积分和矩阵等模板。可以填写模板参数，也可以直接编辑公式源码；字号和颜色写入 LaTeX 分组语法，并在书页中实时预览。
 
-| 组件 | 版本 / 要求 |
-| --- | --- |
-| Minecraft | **1.21.1** |
-| Java | **21** |
-| NeoForge | **21.1.248** |
-| LDLib2 | **2.2.40 或以上**，需单独安装 |
-| ViScriptLib | **1.1.8.1**，发布 JAR 已内嵌 |
-| JEI | 可选，开发验证使用 **19.51.0.417** |
-| Forgematica | 可选，用于制作 / 使用 `.litematic`；读取结构文件本身不要求安装 |
+图表支持常用的流程图、时序图、甘特图、类图、状态图、ER 图、饼图、思维导图和时间线语法。编辑时可以选择模板、修改源码并即时查看结果；阅读时只显示图表，双击可放大。图表由模组在客户端解析和绘制，支持的是 Mermaid 的常用语法子集，并非完整的 Mermaid JavaScript 实现。
 
-将 BetterBook 和 LDLib2 放入客户端与服务端的 `mods/`。jsoup、RSyntaxTextArea、JLaTeXMath 及其字体和 VSL 已随构建产物嵌入。开发环境中的 KubeJS、Sodium、Iris、LAN Server Properties 与结构制作工具不属于玩家安装 BetterBook 的必需依赖。
+## 快速开始
 
-## 先打开案例看看
+### 体验案例
 
-仓库提供一套完整案例：
+仓库提供一份 **24 页、中英双语**的[案例手册](src/main/resources/assets/betterbook/betterbook/books/example.book)，涵盖排版、游戏组件、LaTeX、九类 Mermaid 图表和世界投影。将它放入游戏或服务端目录的 `ldlib2/assets/betterbook/books/`，同时把[配套工作区结构](src/main/resources/assets/betterbook/betterbook/nbt/betterbook-demo-workshop.nbt)放入 `ldlib2/assets/betterbook/nbt/`，然后执行 `/betterbook open example`。
 
-- [betterbook-demo.book](examples/betterbook-demo.book)：12 页、中英双语的创作者手册。
-- [betterbook-demo-workshop.nbt](examples/betterbook-demo-workshop.nbt)：结构章节使用的小型工作区。
-- [案例安装说明](examples/README.md)：复制位置、章节内容与编辑方式。
+案例结构已允许投影和玩家调整，需要 9 块橡木木板、1 个工作台、1 个熔炉和 1 个书架。在目录中选择“结构预览”，即可尝试投射；“投影操作”页介绍按键和作者设置。
 
-将文件复制到**服务端游戏目录**：
+### 制作一本书
 
-```text
-ldlib2/assets/betterbook/
-├── books/
-│   └── betterbook-demo.book
-└── nbt/
-    └── betterbook-demo-workshop.nbt
-```
+1. 在游戏中输入 `/betterbook editor`，通过编辑器的文件菜单新建项目。
+2. 在左侧添加页面，在中间撰写正文；通过工具栏插入图片、公式、图表、物品、实体、配方或结构。选中组件后，在右侧修改其设置。
+3. 需要其他语言时，添加对应译文并分别编辑正文。
+4. 将项目保存为 `.book` 文件，然后使用编辑器的“上传到服务端”发布。上传需要 **2 级权限**。
+5. 输入 `/betterbook open <文件名>` 试读，也可以把服务端书籍绑定到空白手册。
 
-然后输入：
+如果要修改已经发布的书，可以用 `/betterbook editor <文件名>` 打开服务端文件；再次上传时默认写回该路径。这个命令同样需要 **2 级权限**。
 
-```mcfunction
-/betterbook open betterbook-demo
-```
+### 交给玩家阅读
 
-单人游戏使用当前实例的游戏目录；专用服务器使用服务器目录。命令参数省略 `.book` 后缀，支持子目录和自动补全。案例不会自动写入存档，复制文件后即可使用。
+创造模式的 BetterBook 标签页提供空白手册、成书和结构选区工具。玩家右键空白手册，可以从服务端书籍列表中选择要绑定的文件；成书右键后打开阅读器。手册保存的是书籍引用，打开时读取服务端的最新版本。
 
-![物品与实体](docs/images/example-items-entity.png)
+绑定完成的成书可以放到原版空讲台上供其他玩家阅读。每位玩家独立翻页；取下或破坏讲台时，书籍仍按原版讲台的方式处理。
 
-## 制作自己的书
+## 多方块结构与世界投影
 
-1. 输入 `/betterbook editor`，从文件菜单新建书籍。
-2. 左侧添加、重命名和排列页面，中间编辑内容，右侧设置书名和作者。
-3. 用顶部工具栏插入提示、步骤、表格、LaTeX 公式、物品、实体、关联页面、配方和结构。
-4. 选中文字后设置格式、颜色、链接或点击指令；点击组件后编辑其属性。
-5. 使用文件菜单或 **Ctrl/Cmd+S** 保存本地 `.book`，再通过“上传到服务端”发布。
-6. 用 `/betterbook open <文件名>` 阅读，也可绑定到手册物品。
-
-要修改服务器上已发布的文件：
-
-```mcfunction
-/betterbook editor betterbook-demo
-/betterbook editor guides/getting-started
-```
-
-通过服务端路径打开的项目会记住来源，“上传到服务端”默认写回相同路径。关联页面保存稳定页面 ID，重命名和调整顺序不会改变目标。
-
-## 手册物品与讲台
-
-创造模式的 **更好的书 / BetterBook** 标签页包含：
-
-| 物品 | 用途 |
-| --- | --- |
-| 空白手册 `betterbook:blank_book` | 右键打开服务端文件选择窗口 |
-| 手册 `betterbook:bound_book` | 绑定后显示书名与作者，右键阅读；创造栏取出的未绑定手册也可选择文件 |
-| 结构选区工具 `betterbook:structure_wand` | 左键选择第一个角点，右键选择第二个角点 |
-
-右键空白手册，从自动补全中选择文件并确认，即获得成书。成书保存文件引用，每次打开都会读取服务端的最新内容。
-
-**将绑定完成的手册右键放到空讲台上，任何玩家都可以右键讲台阅读。** 每名玩家独立翻页，不会修改他人的阅读位置。讲台使用原版书模型，书籍随讲台保存；破坏讲台会掉落原手册。已有原版书的讲台继续使用原版交互。
-
-## LaTeX 公式
-
-点击工具栏的 **Σ / LaTeX 公式** 按钮打开公式编辑器，确认后插入独立公式块。弹窗、分类面板和格式菜单沿用 OreUI 主题，使用灰色面板、原生按钮和绿色强调。
-
-- **顶部分类：** 常用符号、希腊字母、分数微分、根式角标、极限对数、三角函数、积分运算、大型运算、括号取整、数组矩阵。点击分类展开分组缩略图，选择后插入对应 LaTeX。长面板可以滚动，Esc 先关闭分类面板。
-- **可视化模式：** 能识别的公式恢复为分子、分母、上下限、矩阵单元等参数。参数支持嵌套 LaTeX；先聚焦参数再选择符号或模板，可插入到当前参数。未选参数时选择公式会替换草稿。
-- **源码模式：** 直接输入数学源码，无需 `$...$` 或 `\[...\]`。模板插入到光标位置，可以自由组合公式。
-- **字号／颜色：** 通过下拉菜单插入 LaTeX 语法，例如 `{\huge 123}`、`{\color{Red} x}`、`{\color[RGB]{18,52,86} x}`。字号提供 `tiny`、`scriptsize`、`small`、`normalsize`、`large`、`Large`、`LARGE`、`huge`、`Huge`；颜色提供预设色和 LDLib2 颜色选择组件。
-- **局部格式：** 源码选区被包裹在样式分组内，分组外的内容保持原样；源码未选中时插入空分组。可视化模式作用于当前参数选区，未选中时包裹整个当前参数。菜单切换会保留文本选区。
-- 下方实时预览，并支持左／中／右对齐。无效源码显示错误并禁用确认。双击已有公式可重新编辑；取消或 Esc 放弃草稿，确认后的修改支持撤销、重做和书籍保存。
-
-公式在客户端离线排版，源码随 `.book` 保存，无需网站、浏览器或系统 LaTeX。当前可视化方案为模板与参数编辑，复杂公式使用源码模式。公式块自动按书页宽度缩放。
-
-## Mermaid 图表
-
-点击工具栏的 **Mermaid 图表** 按钮插入图表块。上方显示图表，下方编辑源码，输入时实时刷新；点击“Mermaid 源码”标题可折叠或展开输入区。“图表模板”提供九种类型的可编辑示例，选择后替换当前图表源码，也可以撤销。双击图表打开较大的查看窗口。
-
-图表、源码区和折叠标题使用书页的米黄底与棕色文字、边框，工具栏及弹框外壳沿用 OreUI。阅读器只显示图表，不创建源码区或模板按钮；仍可双击放大查看。
-
-| 类型 | 支持的常用内容 |
-| --- | --- |
-| 流程图 `graph` / `flowchart` | 五种方向、八种节点形状、箭头文字、实线/虚线/粗线、双向箭头、连续连线、循环、自环、独立节点、`subgraph` 分组及嵌套、`A & B` 多节点连线、颜色 `classDef` / `class` / `:::类名` / `style` |
-| 时序图 `sequenceDiagram` | 参与者、角色、别名、同步/异步消息、虚线、双向消息、取消消息、自调用、自动编号、注释、激活条、`loop` / `alt` / `opt` / `par` 等组合片段 |
-| 甘特图 `gantt` | 标题、分区、日期、日/周/时/分/秒时长、`after` / `until` 依赖、显式结束日期、`done` / `active` / `crit`、里程碑、排除周末 |
-| 类图 `classDiagram` | 类、别名、属性、方法、注解、继承/实现、关联、依赖、聚合、组合、多重性、关系文字 |
-| 状态图 `stateDiagram` / `stateDiagram-v2` | 开始/结束、状态别名、状态说明、转换、转换文字、循环和自转移 |
-| ER 图 `erDiagram` | 实体、属性、主/外键文字、实线/虚线关系、关系文字、一对一/一对多/可选基数 |
-| 饼图 `pie` | 标题、数值、比例扇区、百分比和图例 |
-| 思维导图 `mindmap` | 按缩进组织的多级树状结构 |
-| 时间线 `timeline` | 标题、分区、时间段、一个时间段的多个事件 |
-
-```mermaid
-flowchart TD
-  subgraph action[处理过程]
-    A[开始] --> B{判断}
-    B -- 是 --> C[执行]
-    B -- 否 --> D[结束]
-  end
-```
-
-这是 **Java 原生离线实现的 Mermaid 常用语法子集**。解析器和布局由 BetterBook 实现，界面使用 LDLib2，图表使用 Minecraft 字体与原生线条/多边形绘制，无新增运行依赖。它没有接入官方 JavaScript 引擎，因此不承诺与官方 Mermaid 的所有语法和布局一致。复合状态、流程图子图内独立方向、完整 CSS/配置/点击指令、Git 图、XY 图等暂未实现；甘特图目前使用自动刻度，支持 `todayMarker off`，不支持其他今日标记与自定义刻度。
-
-语法错误时图表区域显示错误，声明解析错误附带行号；源码保持可编辑并随书籍保存，修正后恢复图表。源码修改和折叠状态支持撤销、重做。中文由游戏字体显示，图表自动按书页大小缩放；复杂图表建议双击放大查看。
-
-## 配方、实体与结构
-
-**配方画布：** 点击工作台图标插入区域，在右侧把物品槽、箭头或图片拖进去。点击已有组件修改物品或尺寸，拖动调整位置；点击区域空白处恢复画布设置。
-
-**JEI：** 安装后，在配方区域的设置中启用 JEI，选择配方 ID 并应用。BetterBook 使用 JEI 注册分类的绘制布局与交互。可用 ID 取决于 JEI 与已安装模组；酿造等特殊配方应使用补全提供的 ID。JEI 必须能提供该配方的分类及注册 ID。
-
-**实体：** 输入框自动补全实体 ID，NBT 可以改变职业、变种及其他外观。例如：
-
-```snbt
-{VillagerData:{profession:"minecraft:librarian",type:"minecraft:plains",level:2}}
-```
-
-**结构：** 用选区工具框选两个角点，执行：
+BetterBook 可以读取原版结构 `.nbt` 和 Forgematica `.litematic`。作者可将文件放入服务端的结构目录，也可以用创造栏中的结构选区工具左键、右键选择两个角点，然后执行：
 
 ```mcfunction
 /betterbook structure export workshop
 ```
 
-文件保存为服务端 `ldlib2/assets/betterbook/nbt/workshop.litematic`。相同文件名不会覆盖。也可将已有 `.litematic` 或原版结构 `.nbt` 放入该目录，再从书页的结构输入框补全选择。客户端按需下载到内存渲染。
+生成的文件位于 `ldlib2/assets/betterbook/nbt/workshop.litematic`。在编辑器里插入“多方块结构”组件，从服务端文件列表选择它，即可在书页中预览。选区导出需要 **2 级权限**。
 
-## 命令与权限
+作者还可以在该组件的设置中开启：
 
-| 命令 | 功能 | 权限 |
+- **允许投射到世界**：阅读书籍时显示“投射到世界”按钮。默认关闭。
+- **允许玩家调整投影**：玩家可以旋转投影，或在放下投影后重新选点。默认关闭；关闭后仍允许首次选定位置。
+
+玩家点击按钮后，对准世界中的方块表面选择结构的底角位置，右键确认，然后正常放置所需方块。半透明模型表示待放置的方块；已放正确的方块会从投影中消失；方块种类或放置朝向不对时，对应位置出现红色轮廓。左上角会显示完成数量、错块数量和未加载数量。全部补齐后，投影自动移除。
+
+| 默认按键 | 操作 |
+| --- | --- |
+| `J` | 顺时针旋转投影，需作者允许调整 |
+| `G` | 重新选择位置，需作者允许调整 |
+| `H` | 取消投影 |
+
+这些按键可以在游戏的按键设置中修改。投影只提供客户端搭建指引；放置方块仍使用正常的 Minecraft 交互，并遵守服务器的物品消耗与权限规则。完成进度比较方块类型和常见放置属性，例如朝向、轴向和上下半；机器运行状态、容器内容和实体不计入搭建进度。世界投影最多处理 **16,384 个非空气方块**，且一次只显示一个结构。
+
+## 安装与依赖
+
+| 组件 | 要求 |
+| --- | --- |
+| Minecraft | 1.21.1 |
+| NeoForge | 21.1.248 或以上的兼容版本 |
+| Java | 21 |
+| LDLib2 | 2.2.40 或以上，需单独安装 |
+| JEI | 可选；安装后可在配方组件中使用 JEI 的配方展示 |
+
+将 BetterBook 与 LDLib2 安装在客户端和服务端。ViScriptLib、公式排版、HTML 解析和代码编辑所需的库已随 BetterBook 发布 JAR 内嵌。制作 `.litematic` 文件时可以使用 Forgematica；阅读、预览和投射现有结构文件不要求玩家安装它。
+
+## 服务端文件与命令
+
+服务端运行目录中的资源位置：
+
+```text
+ldlib2/assets/betterbook/
+├── books/
+│   ├── guide.book
+│   └── machines/press.book
+└── nbt/
+    ├── workshop.litematic
+    └── example.nbt
+```
+
+单人游戏使用当前游戏实例的目录；专用服务器使用服务器的游戏目录。命令中的书籍名可使用子目录，并可省略 `.book` 后缀，例如 `/betterbook open machines/press`。
+
+| 命令 | 用途 | 权限 |
 | --- | --- | --- |
-| `/betterbook editor` | 打开空编辑器 | 普通玩家 |
+| `/betterbook editor` | 打开编辑器 | 普通玩家 |
 | `/betterbook editor <文件名>` | 编辑服务端书籍 | 2 级 |
 | `/betterbook open <文件名>` | 阅读服务端书籍 | 普通玩家 |
-| `/betterbook structure export <名称>` | 将选区保存为结构文件 | 2 级 |
+| `/betterbook structure export <名称>` | 导出已选区域为 `.litematic` | 2 级 |
+| `/betterbook structure clear` | 清除当前结构选区 | 2 级 |
 
-文件补全和物品绑定均使用服务端目录。`/betterbook read` 分支和获取选区工具的旧命令已移除；工具从创造栏取得。
+书中的点击指令由服务端读取已发布的书籍并执行，权限等级固定为 **2 级**。只有可信任的作者应获得编辑和上传服务端书籍的权限。
 
-上传书籍需要 2 级权限。书内点击指令固定以 **2 级权限**运行，指令文本由服务端文件解析，客户端只发送书籍、页面和动作标识。编辑器可配置指令文本与下划线，不提供权限等级选项。案例的点击指令只向点击者发送聊天消息。
+`.book` 是保存 HTML 正文与多语言信息的 NBT 书籍文件；结构 `.nbt` 与 `.litematic` 单独存放。开发者可通过 [BookExtension 接口](src/main/java/com/zhenshiz/betterbook/api/BookExtension.java)扩展书页节点和编辑能力。
 
-## 文件与扩展
+## 从源码构建
 
-`.book` 是包含 HTML 内容和多语言元数据的未压缩 NBT 文件。原版结构 NBT 与 `.litematic` 是独立的结构资源，不能当作书籍文件打开。完整格式说明见 [文件格式](docs/format.md)。
-
-书页可引用资源包图片；外部图片与结构文件需要对应资源仍然存在。当前限制：书籍传输 64 MiB，单张图片 16 MiB / 4096×4096，结构文件 8 MiB / 262144 个方块位置。复杂网页 CSS、脚本和浏览器交互不会在书中执行。
-
-Java 扩展通过 `BookExtension` 和 LDLib2 注解发现，可以贡献节点、格式、命令、快捷键、输入规则、视图与属性面板。见 [扩展开发](docs/extensions.md)。
-
-## 构建与验证
+使用 Java 21：
 
 ```bash
-# Java 21
 ./gradlew build
-
-# 游戏内开发
-./gradlew runClient
-
-# 单元测试及专用服务器回归
-./gradlew test
-./gradlew runGameTestServer -Pinclude_authoring_mods=false -Pinclude_jei=false
-
-# LDLib2 真实客户端回归
-./gradlew runClient -PldTest=group:betterbook -PldTestWindow=1280x720 -Pinclude_authoring_mods=false
-
-# 验证没有 JEI 的客户端
-./gradlew runClient -PldTest=book_example -PldTestWindow=1280x720 -Pinclude_authoring_mods=false -Pinclude_jei=false
 ```
 
-构建输出：`build/libs/BetterBook-neoforge-1.21.1-1.0.0.jar`。
-
-开发运行目录为 `run/`，UI 测试使用 `run-uitest/`，服务端测试使用 `run-servertest/`。回归场景与历史格式夹具不打入发布 JAR。`book_example` 场景通过正式编码器重新生成 `examples/` 的案例文件与包内示例，并验证阅读和编辑。
-
-需要热替换时，使用支持相应参数的 JBR / DCEVM 并传入 `-Penable_hotswap=true`；普通 Java 21 启动无需这些 JVM 参数。
-
-[当前验证结果](docs/validation.md) · [项目审查记录](docs/review.md)
-
-## 发布到 CurseForge / Modrinth
-
-发布任务沿用 ViScriptLib 的 CurseForgeGradle / Minotaur 配置方式，使用本项目的正式 `jar` 产物（包含 Jar-in-Jar 依赖）。保留现有 Maven 发布任务；`publishMods` 只发布到 CF 和 MR。
-
-先将 `publish.env.example` 复制为 `publish.env`，填写两个平台的项目 ID 和 Token：
-
-```dotenv
-CURSEFORGE_PROJECT_ID=你的CF数字项目ID
-MODRINTH_PROJECT_ID=你的MR项目ID或slug
-CURSEFORGE_TOKEN=你的CF_API_Token
-MODRINTH_TOKEN=你的MR_Token
-```
-
-也可以直接设置同名环境变量。环境变量优先于 `publish.env`；项目 ID 可通过 `gradle.properties` 的 `publish_curseforge_project_id` / `publish_modrinth_project_id` 或 `-P` 覆盖。Token 不写入 `gradle.properties`，`publish.env` 已被 Git 忽略。
-
-```bash
-# 查看发布内容：构建并测试，生成 build/publishing/preview.json，不上传、不需要 Token
-./gradlew previewModPublishing
-
-# 上传已配置项目 ID 的平台；两个平台均配置时同时上传
-./gradlew publishMods
-
-# 使用相同入口演练；两个上传任务都会跳过，不向平台发送请求
-./gradlew publishMods -Ppublish_dry_run
-
-# 仅上传一个平台
-./gradlew publishCurseforge
-./gradlew publishModrinth
-```
-
-版本号读取 `mod_version`，Minecraft 版本读取 `minecraft_version`，加载器固定为 NeoForge，支持客户端与服务端。发布前会先完成 `build` 和测试。`publishMods` 跳过未配置项目 ID 的平台，因此只配置 CF 时也能一键发布；已配置平台缺少 Token 时会报错。两个平台都启用时，任一上传前都会检查两者的配置。
-
-CF 上传使用 Minecraft 的上传入口，真实上传任务明确关闭插件的 `debugMode`。只有收到平台返回的有效文件 ID 才记录成功，回执保存为 `build/publishing/curseforge-upload.json`；上传完成不代表审核已经通过。
-
-```bash
-# 在线核对 CF Token、游戏版本标签和上传参数，只查询，不提交文件
-./gradlew checkCurseforgeUpload
-
-# 正式上传到 CF；日志会显示平台返回的文件 ID
-./gradlew publishCurseforge
-```
-
-`checkCurseforgeUpload` 的连接检查不验证具体项目的上传权限；权限错误会在正式上传时由平台返回。若日志只显示上传 URL 和 JSON，没有文件 ID，则只是插件的调试输出，不代表文件已提交。`-Ppublish_dry_run` 则完全不连接平台。
-
-更新说明默认读取 `CHANGELOG.md`，也可以使用 `PUBLISH_CHANGELOG` 或 `-Ppublish_changelog="更新说明"` 覆盖。版本名包含 `alpha` / `snapshot` 时发布为 alpha，包含 `beta` 时发布为 beta，其余为 release；使用 `-Ppublish_release_type=beta` 或 `PUBLISH_RELEASE_TYPE` 可手动指定。
-
-默认标注 LDLib2（`ldlib`）为必需依赖、JEI（`jei`）为可选依赖；已嵌入的 ViScriptLib 不要求玩家另行安装。可以修改 `gradle.properties` 中 `publish_*_requires` / `publish_*_optional` 的逗号分隔 slug 列表。
+发布 JAR 输出到 `build/libs/`。本项目还提供 `runClient`、`runGameTestServer` 和 `test` 等开发任务；本地造图模组的加载方式见 [libs/README.md](libs/README.md)。
 
 ## 许可证
 
-BetterBook 采用 **GNU General Public License v3.0（GPL-3.0-only）**。完整协议见 [LICENSE](LICENSE)。
-
-随构建产物嵌入的第三方库及字体保留各自的许可证声明，本项目的许可证不替代这些声明。
+BetterBook 采用 [GNU GPL 3.0](LICENSE) 许可证。随 JAR 内嵌的第三方库及字体保留各自的许可证。

@@ -59,6 +59,14 @@ repositories {
     maven {
         url "https://maven.sighs.cc/repository/maven-public/"
     }
+
+    maven {
+        name = "Mekanism"
+        url = "https://modmaven.dev"
+        content {
+            includeGroup "mekanism"
+        }
+    }
 }
 
 base {
@@ -180,6 +188,7 @@ dependencies {
     runtimeOnly "maven.modrinth:sodium:${sodium_version}"
     runtimeOnly "maven.modrinth:iris:${iris_version}"
     runtimeOnly "maven.modrinth:lan-server-properties:${lsp_version}"
+    runtimeOnly "mekanism:Mekanism:${mekanism_version}"
     compileOnly "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
     if (providers.gradleProperty('include_jei').map { it.toBoolean() }.getOrElse(true)) {
         runtimeOnly "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"

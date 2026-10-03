@@ -66,6 +66,8 @@ public final class BookWorkspace implements AutoCloseable {
     private final UIElement structurePanel = new UIElement();
     private final StructureFileSearchBox structureFile = new StructureFileSearchBox();
     private final Toggle structureOrtho = new Toggle();
+    private final Toggle structureProjectable = new Toggle();
+    private final Toggle structureProjectionEditable = new Toggle();
     private final Label structureError = new Label();
     private int structureBlock = -1;
     private String structureData = "";
@@ -640,6 +642,16 @@ public final class BookWorkspace implements AutoCloseable {
         structureOrtho.setId("structure-ortho");
         structureOrtho.toggleButton.setId("structure-ortho-toggle");
         structureOrtho.setText("gui.betterbook.structure_ortho");
+        structureProjectable.setId("structure-projectable");
+        structureProjectable.toggleButton.setId("structure-projectable-toggle");
+        structureProjectable.setText("gui.betterbook.structure_projectable");
+        structureProjectionEditable.setId("structure-projection-editable");
+        structureProjectionEditable.toggleButton.setId("structure-projection-editable-toggle");
+        structureProjectionEditable.setText("gui.betterbook.structure_projection_editable");
+        structureProjectionEditable
+                .getStyle()
+                .tooltips(
+                        Component.translatable("gui.betterbook.structure_projection_editable_tip"));
         structureError.setId("structure-error");
         structureError.setDisplay(false);
         structureError.getLayout().widthPercent(100).minWidth(0);
@@ -648,6 +660,8 @@ public final class BookWorkspace implements AutoCloseable {
                 new Label().setText("gui.betterbook.structure_file"),
                 structureFile,
                 structureOrtho,
+                structureProjectable,
+                structureProjectionEditable,
                 structureError,
                 button("apply", "structure-apply", this::applyStructure),
                 button(
@@ -701,6 +715,10 @@ public final class BookWorkspace implements AutoCloseable {
         structureData = element.outerHtml();
         structureFile.reference(element.attr("data-structure-file"));
         structureOrtho.setValue(Boolean.parseBoolean(element.attr("data-structure-ortho")), false);
+        structureProjectable.setValue(
+                Boolean.parseBoolean(element.attr("data-structure-projectable")), false);
+        structureProjectionEditable.setValue(
+                Boolean.parseBoolean(element.attr("data-structure-projection-editable")), false);
         structureError.setDisplay(false);
     }
 
@@ -711,6 +729,8 @@ public final class BookWorkspace implements AutoCloseable {
         var element = document.blocks().get(block).element();
         String before = element.outerHtml(), reference = structureFile.reference();
         boolean ortho = structureOrtho.isOn();
+        boolean projectable = structureProjectable.isOn();
+        boolean projectionEditable = structureProjectionEditable.isOn();
         structureError.setText("gui.betterbook.structure_loading");
         structureError.setDisplay(true);
         StructureFiles.load(reference)
@@ -725,7 +745,10 @@ public final class BookWorkspace implements AutoCloseable {
                                     || document.blocks().get(block).element() != element
                                     || !before.equals(element.outerHtml())
                                     || !reference.equals(structureFile.reference())
-                                    || ortho != structureOrtho.isOn()) return;
+                                    || ortho != structureOrtho.isOn()
+                                    || projectable != structureProjectable.isOn()
+                                    || projectionEditable != structureProjectionEditable.isOn())
+                                return;
                             if (error != null) {
                                 structureError.setText(
                                         Component.translatable(
@@ -741,7 +764,13 @@ public final class BookWorkspace implements AutoCloseable {
                                         current.attr("data-structure-file", reference)
                                                 .attr(
                                                         "data-structure-ortho",
-                                                        Boolean.toString(ortho));
+                                                        Boolean.toString(ortho))
+                                                .attr(
+                                                        "data-structure-projectable",
+                                                        Boolean.toString(projectable))
+                                                .attr(
+                                                        "data-structure-projection-editable",
+                                                        Boolean.toString(projectionEditable));
                                         session.document().invalidate();
                                     });
                             refreshStructureFields();

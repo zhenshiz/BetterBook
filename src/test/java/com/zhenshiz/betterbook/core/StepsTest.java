@@ -70,4 +70,62 @@ class StepsTest {
         assertEquals(
                 "0", s.document().body().selectFirst("div[data-type=steps]").attr("currentstep"));
     }
+
+    @Test
+    void readerStartsAtFirstStepWithoutChangingAuthorOrOtherReaders() {
+        var author = session();
+        author.selectStep(2);
+        String saved = author.document().html();
+        var firstReader = new BookSession(author.book().localized(author.language()));
+        assertEquals(
+                "0",
+                firstReader.document().body().selectFirst("div[data-type=steps]").attr("currentstep"));
+        firstReader.selectStep(2);
+        assertEquals(
+                "1",
+                firstReader.document().body().selectFirst("div[data-type=steps]").attr("currentstep"));
+        var nextReader = author.book().localized(author.language());
+        assertEquals(
+                "0",
+                nextReader.pages.getFirst().document().body()
+                        .selectFirst("div[data-type=steps]").attr("currentstep"));
+        assertEquals(saved, author.document().html());
+        assertEquals(
+                "1",
+                firstReader.document().body().selectFirst("div[data-type=steps]").attr("currentstep"));
+    }
+
+    @Test
+    void readerResetsEveryGroupIncludingNestedTranslatedAndFallbackSteps() {
+        var author = session();
+        author.selectStep(2);
+        var book = author.book();
+        book.pages.add(new Book.Page("fallback", "Fallback", author.document().copy()));
+        book.addLanguage("zh_cn");
+        var nested =
+                RichDocument.parse(
+                        "<div data-type='steps' currentstep='1'>"
+                                + item("一")
+                                + "<div data-type='step-item'><div data-type='admonition-title'>二</div>"
+                                + "<div data-type='admonition-content'><div data-type='steps' currentstep='1'>"
+                                + item("内一")
+                                + item("内二")
+                                + "</div></div></div></div>",
+                        StandardSchema.create());
+        var translated = new Book.Page(book.pages.getFirst().id(), "步骤", nested);
+        book.translations.put(
+                "zh_cn",
+                new Book.Translation("手册", "", java.util.Map.of(translated.id(), translated)));
+        String savedTranslation = nested.html();
+        var reader = book.localized("zh_cn");
+        assertEquals(
+                2, reader.pages.getFirst().document().body().select("div[data-type=steps]").size());
+        for (var page : reader.pages)
+            for (var group : page.document().body().select("div[data-type=steps]"))
+                assertEquals("0", group.attr("currentstep"));
+        assertEquals(savedTranslation, nested.html());
+        assertEquals(
+                "1",
+                book.pages.get(1).document().body().selectFirst("div[data-type=steps]").attr("currentstep"));
+    }
 }

@@ -2,12 +2,15 @@ package com.zhenshiz.betterbook.client;
 
 import com.lowdragmc.lowdraglib2.client.scene.FBOWorldSceneRenderer;
 import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Scene;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.utils.data.BlockInfo;
 import com.lowdragmc.lowdraglib2.utils.virtuallevel.TrackedDummyWorld;
 import com.zhenshiz.betterbook.data.BookSchematic;
+
+import dev.vfyjxf.taffy.style.TaffyPosition;
 
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.EntityType;
@@ -23,6 +26,8 @@ final class BookStructureView extends Scene {
     private final java.util.concurrent.CompletableFuture<net.minecraft.nbt.CompoundTag> loading;
     private final boolean ortho;
     private boolean loaded;
+    private BookSchematic.Snapshot snapshot;
+    private final Button project = new Button();
     private final Label status = new Label();
 
     BookStructureView(Element element, boolean editable) {
@@ -40,6 +45,34 @@ final class BookStructureView extends Scene {
         status.textStyle(style -> style.textWrap(TextWrap.WRAP).textShadow(false));
         status.addClass("book-entity-error");
         addChild(status);
+        if (!editable && Boolean.parseBoolean(element.attr("data-structure-projectable"))) {
+            project.setText("gui.betterbook.projection_start");
+            project.text.textStyle(style -> style.textColor(0xff362a21).textShadow(false));
+            project.addClass("book-structure-project");
+            project.getLayout()
+                    .positionType(TaffyPosition.ABSOLUTE)
+                    .right(5)
+                    .bottom(5)
+                    .height(20)
+                    .paddingHorizontal(8);
+            project.setActive(false);
+            project.setOnClick(
+                    event -> {
+                        event.stopPropagation();
+                        if (snapshot == null) return;
+                        var error =
+                                StructureProjectionClient.begin(
+                                        snapshot,
+                                        Boolean.parseBoolean(
+                                                element.attr(
+                                                        "data-structure-projection-editable")));
+                        if (error != null) {
+                            status.setText(error);
+                            if (status.getParent() == null) addChild(status);
+                        }
+                    });
+            addChild(project);
+        }
         finishLoading();
         getStyle().tooltips(Component.translatable("gui.betterbook.entity_controls"));
         addEventListener(
@@ -62,7 +95,7 @@ final class BookStructureView extends Scene {
         if (loaded || !loading.isDone()) return;
         loaded = true;
         try {
-            var snapshot = BookSchematic.decode(loading.join());
+            snapshot = BookSchematic.decode(loading.join());
             removeChild(status);
             setDraggable(true);
             setScalable(true);
@@ -105,6 +138,7 @@ final class BookStructureView extends Scene {
                     false);
             useOrtho(ortho);
             resetCamera();
+            project.setActive(true);
         } catch (Exception e) {
             setDraggable(false);
             setScalable(false);

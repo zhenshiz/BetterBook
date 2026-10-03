@@ -213,7 +213,10 @@ public final class Book {
         b.author = author(language);
         for (int i = 0; i < pages.size(); i++) {
             var p = page(i, language);
-            b.pages.add(p.withDocument(p.document().copy()));
+            var document = p.document().copy();
+            // 作者保存的步骤选中位置不作为读者的初始进度。
+            document.body().select("div[data-type=steps]").attr("currentstep", "0");
+            b.pages.add(p.withDocument(document));
         }
         return b;
     }
