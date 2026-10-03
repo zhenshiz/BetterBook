@@ -1,0 +1,248 @@
+import groovy.json.JsonOutput
+
+// 沿用 ViScriptLib 的 Minotaur / CurseForgeGradle 发布入口。
+// 预览不执行插件上传动作，也不向平台发送认证或查询请求。
+def clean = { Object value -> value?.toString()?.trim() ?: null }
+def localEnv = providers.fileContents(layout.projectDirectory.file('publish.env')).asText.orElse('').get()
+def fileValues = [:]
+localEnv.eachLine { line ->
+    def entry = line.trim()
+    if (entry && !entry.startsWith('#')) {
+        int separator = entry.indexOf('=')
+        if (separator > 0) {
+            def key = entry.substring(0, separator).trim()
+            def value = entry.substring(separator + 1).trim()
+            if (value.length() >= 2 && ((value.startsWith('"') && value.endsWith('"')) ||
+                    (value.startsWith("'") && value.endsWith("'")))) {
+                value = value.substring(1, value.length() - 1)
+            }
+            fileValues[key] = value
+        }
+    }
+}
+def envValue = { String key ->
+    clean(providers.environmentVariable(key).orNull) ?: clean(fileValues[key])
+}
+def setting = { String property, String environment ->
+    clean(providers.gradleProperty(property).orNull) ?: envValue(environment)
+}
+def csv = { String value -> (value ?: '').split(',').collect { it.trim() }.findAll { it }.unique() }
+def cfId = setting('publish_curseforge_project_id', 'CURSEFORGE_PROJECT_ID')
+def mrId = setting('publish_modrinth_project_id', 'MODRINTH_PROJECT_ID')
+def cfToken = envValue('CURSEFORGE_TOKEN')
+def mrToken = envValue('MODRINTH_TOKEN')
+def publishVersion = mod_version.toString()
+def minecraftVersion = minecraft_version.toString()
+def versionLower = publishVersion.toLowerCase(Locale.ROOT)
+def releaseType = setting('publish_release_type', 'PUBLISH_RELEASE_TYPE') ?:
+        (versionLower.contains('alpha') || versionLower.contains('snapshot') ? 'alpha' :
+                versionLower.contains('beta') ? 'beta' : 'release')
+def publishChangelog = envValue('PUBLISH_CHANGELOG') ?: clean(providers.gradleProperty('publish_changelog').orNull) ?:
+        clean(providers.fileContents(layout.projectDirectory.file('CHANGELOG.md')).asText.orElse('').get()) ?:
+        "${mod_name} ${publishVersion}"
+def dryRunValue = providers.gradleProperty('publish_dry_run').orNull
+def dryRun = dryRunValue != null && (dryRunValue.isEmpty() || dryRunValue.equalsIgnoreCase('true'))
+def cfRequired = csv(providers.gradleProperty('publish_curseforge_requires').getOrElse('ldlib'))
+def mrRequired = csv(providers.gradleProperty('publish_modrinth_requires').getOrElse('ldlib'))
+def cfOptional = csv(providers.gradleProperty('publish_curseforge_optional').getOrElse('jei'))
+def mrOptional = csv(providers.gradleProperty('publish_modrinth_optional').getOrElse('jei'))
+def jarTask = tasks.named('jar')
+def jarFile = jarTask.flatMap { it.archiveFile }
+def displayName = "${mod_name} ${publishVersion} · NeoForge ${minecraftVersion}".toString()
+
+def checkCommon = {
+    if (!(releaseType in ['release', 'beta', 'alpha'])) {
+        throw new GradleException('publish_release_type / PUBLISH_RELEASE_TYPE 必须为 release、beta 或 alpha。')
+    }
+    if (dryRunValue != null && !dryRunValue.isEmpty() &&
+            !dryRunValue.equalsIgnoreCase('true') && !dryRunValue.equalsIgnoreCase('false')) {
+        throw new GradleException('publish_dry_run 必须为 true 或 false；也可以直接使用 -Ppublish_dry_run。')
+    }
+}
+def validCfId = cfId != null && cfId.isLong() && cfId.toLong() > 0
+
+def checkCf = tasks.register('checkCurseforgePublishing') {
+    group = 'publishing'
+    description = '检查 CurseForge 发布配置，不连接平台。'
+    notCompatibleWithConfigurationCache('发布配置包含本地凭据，不缓存发布任务。')
+    doLast {
+        checkCommon()
+        if (cfId != null && !validCfId) {
+            throw new GradleException('CURSEFORGE_PROJECT_ID / publish_curseforge_project_id 必须为正整数项目 ID。')
+        }
+        if (!dryRun && (!cfId || !cfToken)) {
+            throw new GradleException('CurseForge 发布配置不完整：请填写项目 ID 和 CURSEFORGE_TOKEN（环境变量或 publish.env）。')
+        }
+    }
+}
+def checkMr = tasks.register('checkModrinthPublishing') {
+    group = 'publishing'
+    description = '检查 Modrinth 发布配置，不连接平台。'
+    notCompatibleWithConfigurationCache('发布配置包含本地凭据，不缓存发布任务。')
+    doLast {
+        checkCommon()
+        if (mrId != null && !(mrId ==~ /[A-Za-z0-9_-]+/)) {
+            throw new GradleException('MODRINTH_PROJECT_ID / publish_modrinth_project_id 请填写项目 ID 或 slug，不要填写网址。')
+        }
+        if (!dryRun && (!mrId || !mrToken)) {
+            throw new GradleException('Modrinth 发布配置不完整：请填写项目 ID/slug 和 MODRINTH_TOKEN（环境变量或 publish.env）。')
+        }
+    }
+}
+
+def previewFile = layout.buildDirectory.file('publishing/preview.json')
+def preview = tasks.register('previewModPublishing') {
+    group = 'publishing'
+    description = '构建并显示两个平台的发布信息；不上传，不需要 Token。'
+    dependsOn tasks.named('build')
+    notCompatibleWithConfigurationCache('发布预览与上传共用配置，每次重新读取本地设置。')
+    outputs.file(previewFile)
+    outputs.upToDateWhen { false }
+    doLast { task ->
+        checkCommon()
+        def artifact = jarFile.get().asFile
+        def data = [
+                artifact: artifact.absolutePath,
+                artifactBytes: artifact.length(),
+                version: publishVersion,
+                name: displayName,
+                releaseType: releaseType,
+                gameVersions: [minecraftVersion],
+                loaders: ['neoforge'],
+                environments: ['client', 'server'],
+                modrinthEnvironment: 'client_and_server',
+                javaVersion: 21,
+                changelog: publishChangelog,
+                curseforge: [projectId: cfId, required: cfRequired, optional: cfOptional],
+                modrinth: [projectId: mrId, required: mrRequired, optional: mrOptional]
+        ]
+        def json = new groovy.json.JsonGenerator.Options().disableUnicodeEscaping().build().toJson(data)
+        json = JsonOutput.prettyPrint(json)
+        def destination = previewFile.get().asFile
+        destination.parentFile.mkdirs()
+        destination.setText(json + '\n', 'UTF-8')
+        task.logger.lifecycle('发布预览（未上传；不含 Token）：\n{}', json)
+    }
+}
+
+// 外部插件的任务类由插件类加载器提供，apply-from 脚本无需额外 buildscript 依赖。
+def cfPlugin = plugins.findPlugin('net.darkhax.curseforgegradle')
+def cfTaskClass = cfPlugin.class.classLoader.loadClass('net.darkhax.curseforgegradle.TaskPublishCurseForge')
+def cfApiEndpoint = 'https://minecraft.curseforge.com'
+def configureCfArtifact = { task ->
+    task.apiToken = cfToken
+    // 与本地 ViScriptLib 的 Java 21 兼容插件一致，固定 Minecraft 上传入口。
+    // legacy.curseforge.com 在版本查询阶段返回 403，不作为此 Minecraft 模组的入口。
+    task.apiEndpoint = cfApiEndpoint
+    task.disableVersionDetection()
+    if (validCfId) {
+        def artifact = task.upload(cfId, jarTask.get())
+        artifact.displayName = displayName
+        artifact.changelog = publishChangelog
+        artifact.changelogType = 'markdown'
+        artifact.releaseType = releaseType
+        artifact.addGameVersion(minecraftVersion)
+        artifact.addModLoader('NeoForge')
+        artifact.addEnvironment('Client', 'Server')
+        artifact.addJavaVersion('Java 21')
+        cfRequired.each { artifact.addRequirement(it) }
+        cfOptional.each { artifact.addOptional(it) }
+    }
+}
+def cfReceipt = layout.buildDirectory.file('publishing/curseforge-upload.json')
+def cfUpload = tasks.register('publishCurseforge', cfTaskClass) {
+    group = 'publishing'
+    description = '构建并实际上传至 CurseForge；成功后显示并记录平台文件 ID。'
+    dependsOn tasks.named('build'), checkCf
+    mustRunAfter checkCf, checkMr
+    notCompatibleWithConfigurationCache('CurseForgeGradle 上传任务使用运行时项目配置。')
+    onlyIf { !dryRun }
+    if (dryRun) dependsOn preview
+    configureCfArtifact(delegate)
+    debugMode = false
+    doFirst { task ->
+        if (task.debugMode) {
+            throw new GradleException('publishCurseforge 的 debugMode=true 只打印请求、不上传。请使用 checkCurseforgeUpload 检查连接，正式发布时关闭 debugMode。')
+        }
+        task.logger.lifecycle('实际上传至 CurseForge：项目 {}，文件 {}。', cfId, jarFile.get().asFile.name)
+    }
+    doLast { task ->
+        def ids = task.uploadArtifacts.collect { it.curseFileId }
+        if (ids.isEmpty() || ids.any { it == null || it <= 0 }) {
+            throw new GradleException('CurseForge 未返回有效文件 ID，不能确认上传成功。打印请求或 HTTP 200 空响应不代表上传成功。')
+        }
+        def destination = cfReceipt.get().asFile
+        destination.parentFile.mkdirs()
+        destination.setText(JsonOutput.prettyPrint(JsonOutput.toJson([
+                platform: 'curseforge', projectId: cfId, fileIds: ids,
+                artifact: jarFile.get().asFile.name, version: publishVersion,
+                uploadedAt: java.time.Instant.now().toString()
+        ])) + '\n', 'UTF-8')
+        task.logger.lifecycle('CurseForge 已接收文件，文件 ID：{}。回执：{}；审核状态请在平台查看。', ids.join(', '), destination)
+    }
+}
+
+tasks.register('checkCurseforgeUpload', cfTaskClass) {
+    group = 'publishing'
+    description = '使用真实 CF 配置查询版本并检查上传参数，只发送 GET，不提交 JAR。'
+    dependsOn tasks.named('build'), checkCf
+    notCompatibleWithConfigurationCache('在线检查使用运行时凭据和版本查询。')
+    onlyIf { !dryRun }
+    if (dryRun) dependsOn preview
+    configureCfArtifact(delegate)
+    debugMode = true
+    doFirst { task ->
+        if (!task.debugMode) throw new GradleException('checkCurseforgeUpload 必须保持 debugMode=true，防止检查任务实际上传。')
+        task.logger.lifecycle('检查 CurseForge 连接和上传参数（不上传）：{}', cfApiEndpoint)
+    }
+    doLast { task ->
+        task.logger.lifecycle('CurseForge 版本查询和参数检查通过；没有提交文件。正式上传请运行 publishCurseforge。')
+    }
+}
+
+modrinth {
+    token = mrToken ?: ''
+    projectId = mrId ?: ''
+    versionNumber = publishVersion
+    versionName = displayName
+    versionType = releaseType
+    uploadFile = jarTask.get()
+    gameVersions = [minecraftVersion]
+    loaders = ['neoforge']
+    environment = 'client_and_server'
+    changelog = publishChangelog
+    dependencies {
+        mrRequired.each { required.project(it) }
+        mrOptional.each { optional.project(it) }
+    }
+}
+def mrUpload = tasks.named('modrinth') {
+    dependsOn tasks.named('build'), checkMr
+    mustRunAfter checkCf, checkMr
+    onlyIf { !dryRun }
+    if (dryRun) dependsOn preview
+}
+
+tasks.register('publishMods') {
+    group = 'publishing'
+    description = '构建并上传已配置项目 ID 的 CF/MR 平台；-Ppublish_dry_run 仅预览。'
+    // 与 ViScriptLib 一样跳过没有项目 ID 的平台；已启用平台仍必须有 Token。
+    // 两个平台都启用时，mustRunAfter 保证配置检查全部通过后才允许任一上传执行。
+    if (dryRun || cfId) dependsOn cfUpload
+    if (dryRun || mrId) dependsOn mrUpload
+    doLast { task ->
+        if (!dryRun && !cfId && !mrId) {
+            throw new GradleException('没有配置发布平台：请填写 CURSEFORGE_PROJECT_ID 或 MODRINTH_PROJECT_ID。')
+        }
+        if (dryRun) task.logger.lifecycle('发布预览完成，没有上传到 CurseForge 或 Modrinth。')
+        else {
+            if (!cfId) task.logger.lifecycle('跳过 CurseForge：未配置项目 ID。')
+            if (!mrId) task.logger.lifecycle('跳过 Modrinth：未配置项目 ID。')
+        }
+    }
+}
+tasks.register('publishModrinth') {
+    group = 'publishing'
+    description = '构建并上传至 Modrinth（modrinth 任务的别名）。'
+    dependsOn mrUpload
+}

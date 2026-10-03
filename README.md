@@ -215,6 +215,54 @@ Java 扩展通过 `BookExtension` 和 LDLib2 注解发现，可以贡献节点�
 
 [当前验证结果](docs/validation.md) · [项目审查记录](docs/review.md)
 
+## 发布到 CurseForge / Modrinth
+
+发布任务沿用 ViScriptLib 的 CurseForgeGradle / Minotaur 配置方式，使用本项目的正式 `jar` 产物（包含 Jar-in-Jar 依赖）。保留现有 Maven 发布任务；`publishMods` 只发布到 CF 和 MR。
+
+先将 `publish.env.example` 复制为 `publish.env`，填写两个平台的项目 ID 和 Token：
+
+```dotenv
+CURSEFORGE_PROJECT_ID=你的CF数字项目ID
+MODRINTH_PROJECT_ID=你的MR项目ID或slug
+CURSEFORGE_TOKEN=你的CF_API_Token
+MODRINTH_TOKEN=你的MR_Token
+```
+
+也可以直接设置同名环境变量。环境变量优先于 `publish.env`；项目 ID 可通过 `gradle.properties` 的 `publish_curseforge_project_id` / `publish_modrinth_project_id` 或 `-P` 覆盖。Token 不写入 `gradle.properties`，`publish.env` 已被 Git 忽略。
+
+```bash
+# 查看发布内容：构建并测试，生成 build/publishing/preview.json，不上传、不需要 Token
+./gradlew previewModPublishing
+
+# 上传已配置项目 ID 的平台；两个平台均配置时同时上传
+./gradlew publishMods
+
+# 使用相同入口演练；两个上传任务都会跳过，不向平台发送请求
+./gradlew publishMods -Ppublish_dry_run
+
+# 仅上传一个平台
+./gradlew publishCurseforge
+./gradlew publishModrinth
+```
+
+版本号读取 `mod_version`，Minecraft 版本读取 `minecraft_version`，加载器固定为 NeoForge，支持客户端与服务端。发布前会先完成 `build` 和测试。`publishMods` 跳过未配置项目 ID 的平台，因此只配置 CF 时也能一键发布；已配置平台缺少 Token 时会报错。两个平台都启用时，任一上传前都会检查两者的配置。
+
+CF 上传使用 Minecraft 的上传入口，真实上传任务明确关闭插件的 `debugMode`。只有收到平台返回的有效文件 ID 才记录成功，回执保存为 `build/publishing/curseforge-upload.json`；上传完成不代表审核已经通过。
+
+```bash
+# 在线核对 CF Token、游戏版本标签和上传参数，只查询，不提交文件
+./gradlew checkCurseforgeUpload
+
+# 正式上传到 CF；日志会显示平台返回的文件 ID
+./gradlew publishCurseforge
+```
+
+`checkCurseforgeUpload` 的连接检查不验证具体项目的上传权限；权限错误会在正式上传时由平台返回。若日志只显示上传 URL 和 JSON，没有文件 ID，则只是插件的调试输出，不代表文件已提交。`-Ppublish_dry_run` 则完全不连接平台。
+
+更新说明默认读取 `CHANGELOG.md`，也可以使用 `PUBLISH_CHANGELOG` 或 `-Ppublish_changelog="更新说明"` 覆盖。版本名包含 `alpha` / `snapshot` 时发布为 alpha，包含 `beta` 时发布为 beta，其余为 release；使用 `-Ppublish_release_type=beta` 或 `PUBLISH_RELEASE_TYPE` 可手动指定。
+
+默认标注 LDLib2（`ldlib`）为必需依赖、JEI（`jei`）为可选依赖；已嵌入的 ViScriptLib 不要求玩家另行安装。可以修改 `gradle.properties` 中 `publish_*_requires` / `publish_*_optional` 的逗号分隔 slug 列表。
+
 ## 许可证
 
 BetterBook 采用 **GNU General Public License v3.0（GPL-3.0-only）**。完整协议见 [LICENSE](LICENSE)。

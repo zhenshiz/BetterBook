@@ -17,3 +17,6 @@ __pycache__/
 hs_err_pid*
 replay_pid*
 tools
+
+# 本地发布凭据
+publish.env
