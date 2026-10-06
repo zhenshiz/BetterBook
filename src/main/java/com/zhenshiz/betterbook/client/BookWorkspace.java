@@ -39,6 +39,7 @@ import net.minecraft.world.item.Items;
 import org.jsoup.nodes.Element;
 
 import java.util.*;
+import java.util.function.Consumer;
 
 /** 三栏书籍工作区：页面导航、正文工具栏及书籍信息。 */
 public final class BookWorkspace implements AutoCloseable {
@@ -91,6 +92,10 @@ public final class BookWorkspace implements AutoCloseable {
     private final UIElement languageList = new UIElement();
     private final Label status = new Label(), defaultLabel = new Label();
     private final TextField titleField = new TextField(), authorField = new TextField();
+    private final Toggle followGuiScale = new Toggle();
+    private final Toggle singlePage = new Toggle();
+    private final Toggle allowPageTurning = new Toggle();
+    private final Toggle lockedIcons = new Toggle();
     private final Tab visualTab = new Tab(), htmlTab = new Tab();
     private final List<UIElement> visualTools = new ArrayList<>();
     private final Map<String, Button> formats = new LinkedHashMap<>();
@@ -263,6 +268,25 @@ public final class BookWorkspace implements AutoCloseable {
                     if (!refreshing) session.renameBook(titleField.getValue(), value);
                 });
         fields.addChild(authorField);
+        followGuiScale.setId("book-follow-gui-scale");
+        followGuiScale.setText("gui.betterbook.follow_gui_scale");
+        followGuiScale.getLayout().widthPercent(100).minWidth(0);
+        followGuiScale.toggleLabel.textStyle(style -> style.textWrap(TextWrap.WRAP));
+        followGuiScale.getStyle().tooltips(Component.translatable("gui.betterbook.follow_gui_scale_hint"));
+        followGuiScale.setOnToggleChanged(
+                value -> {
+                    if (!refreshing) session.setFollowGuiScale(value);
+                });
+        fields.addChild(followGuiScale);
+        addBookToggle(fields, singlePage, "single_page", "book-single-page", session::setSinglePage);
+        addBookToggle(
+                fields,
+                allowPageTurning,
+                "allow_page_turning",
+                "book-allow-page-turning",
+                session::setAllowPageTurning);
+        addBookToggle(
+                fields, lockedIcons, "locked_icons", "book-locked-icons", session::setLockedIcons);
         fields.addChild(new Label().setText("gui.betterbook.book_language"));
         languageList.setId("book-languages");
         languageList.getLayout().widthPercent(100).gapAll(3);
@@ -279,6 +303,24 @@ public final class BookWorkspace implements AutoCloseable {
         detailsPanel.addChild(scroller);
         detailsPanel.addChild(button("preview", "book-preview", this::preview));
         detailsView.addChild(detailsPanel);
+    }
+
+    private void addBookToggle(
+            UIElement parent, Toggle toggle, String key, String id, Consumer<Boolean> change) {
+        toggle.setId(id);
+        toggle.setText("gui.betterbook." + key);
+        toggle.getLayout().widthPercent(100).minWidth(0).heightAuto().minHeight(14).flexShrink(0);
+        toggle.toggleButton.setId(id + "-toggle");
+        toggle.toggleButton.getLayout().width(12).height(12).flexShrink(0);
+        toggle.toggleLabel.getLayout().minWidth(0).heightAuto();
+        toggle.toggleLabel.textStyle(
+                style -> style.adaptiveWidth(false).adaptiveHeight(true).textWrap(TextWrap.WRAP));
+        toggle.getStyle().tooltips(Component.translatable("gui.betterbook." + key + "_hint"));
+        toggle.setOnToggleChanged(
+                value -> {
+                    if (!refreshing) change.accept(value);
+                });
+        parent.addChild(toggle);
     }
 
     private void buildColorPanel() {
@@ -1446,6 +1488,10 @@ public final class BookWorkspace implements AutoCloseable {
                                             clipboard != null),
                                     new Action("page-menu-rename", "rename", this::renamePage),
                                     new Action(
+                                            "page-menu-settings",
+                                            "page_settings",
+                                            this::pageAccessSettings),
+                                    new Action(
                                             "page-menu-delete",
                                             Component.translatable("gui.betterbook.delete"),
                                             () -> pageOperation(session::removePage),
@@ -1469,6 +1515,71 @@ public final class BookWorkspace implements AutoCloseable {
                         }));
         d.addButton(button("cancel", "page-title-cancel", d::close));
         d.show(editor.getModularUI());
+    }
+
+    private void pageAccessSettings() {
+        var d = dialog("page_settings");
+        d.setId("page-access-settings");
+        d.overlay.getLayout().width(320).maxHeightPercent(94);
+        d.titleBar.getLayout().flexShrink(0);
+        d.buttonContainer.getLayout().flexShrink(0);
+        d.contentContainer.getLayout().minHeight(0).flexShrink(1);
+        var scroll = new ScrollerView();
+        scroll.getLayout().widthPercent(100).height(250).minHeight(0).minWidth(0).flexShrink(1);
+        var fields = new UIElement();
+        fields.getLayout().widthPercent(100).minWidth(0).gapAll(4).paddingAll(3);
+        fields.addChild(new Label().setText("gui.betterbook.page_stage"));
+        var stage = new TextField();
+        stage.setId("page-stage-input");
+        stage.getLayout().widthPercent(100).height(20).minWidth(0).flexShrink(0);
+        stage.setValue(session.book().requiredStages.getOrDefault(session.page().id(), ""), false);
+        fields.addChild(stage);
+        fields.addChild(pageAccessHint("page_stage_hint"));
+        fields.addChild(new Label().setText("gui.betterbook.page_unlock_hint_label"));
+        var hint = new TextArea();
+        hint.setId("page-unlock-hint-input");
+        hint.getLayout().widthPercent(100).height(60).minWidth(0).flexShrink(0);
+        hint.setValue(session.page().unlockHint().split("\n", -1), false);
+        hint.textAreaStyle(
+                style -> style.placeholder(Component.translatable("gui.betterbook.page_unlock_hint")));
+        fields.addChild(hint);
+        fields.addChild(pageAccessHint("page_unlock_hint_help"));
+        fields.addChild(pageAccessHint("preview_stage_hint"));
+        scroll.addScrollViewChild(fields);
+        d.addContent(scroll);
+        d.addButton(
+                button(
+                        "apply",
+                        "page-access-apply",
+                        () -> {
+                            try {
+                                session.setPageAccess(
+                                        stage.getValue(), String.join("\n", hint.getValue()));
+                                d.close();
+                            } catch (IllegalArgumentException failure) {
+                                editor.error(
+                                        new IllegalArgumentException(
+                                                Component.translatable(
+                                                                "gui.betterbook.page_stage_invalid",
+                                                                stage.getValue())
+                                                        .getString(),
+                                                failure));
+                            } catch (Exception failure) {
+                                editor.error(failure);
+                            }
+                        }));
+        d.addButton(button("cancel", "page-access-cancel", d::close));
+        d.show(editor.getModularUI());
+        stage.focus();
+    }
+
+    private Label pageAccessHint(String key) {
+        var hint = new Label();
+        hint.setText("gui.betterbook." + key);
+        hint.getLayout().widthPercent(100).minWidth(0).heightAuto().flexShrink(0);
+        hint.textStyle(
+                style -> style.adaptiveWidth(false).adaptiveHeight(true).textWrap(TextWrap.WRAP));
+        return hint;
     }
 
     private int indexOf(String id) {
@@ -1718,6 +1829,10 @@ public final class BookWorkspace implements AutoCloseable {
                 titleField.setValue(session.book().title(session.language()), false);
             if (!authorField.getValue().equals(session.book().author(session.language())))
                 authorField.setValue(session.book().author(session.language()), false);
+            followGuiScale.setValue(session.book().followGuiScale, false);
+            singlePage.setValue(session.book().singlePage, false);
+            allowPageTurning.setValue(session.book().allowPageTurning, false);
+            lockedIcons.setValue(session.book().lockedIcons, false);
             defaultLabel.setText(
                     Component.translatable(
                             "gui.betterbook.default_language_value",

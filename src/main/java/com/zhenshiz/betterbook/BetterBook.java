@@ -32,6 +32,7 @@ public final class BetterBook {
         event.register(BookRelatedPages.class, BookRelatedPages::new);
         event.register(StructureFileList.class, StructureFileList::new);
         event.register(StructureFileChunk.class, StructureFileChunk::new);
+        event.register(PlayerStages.Stages.class, PlayerStages.Stages::new);
     }
 
     public BetterBook(net.neoforged.bus.api.IEventBus bus) {

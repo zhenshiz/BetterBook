@@ -82,6 +82,12 @@
 .book-related-line { background: #b59c70; }
 .book-related-hint { text-color: #806742; }
 .book-related-destination { overlay: border(-1, #96703d); }
+.book-related-button.book-related-locked { base-background: rect(#e7d8b8); }
+.book-related-locked .book-related-name { text-color: #8b7657; }
+.book-locked-title { text-color: #79603e; }
+.book-locked-hint { text-color: #806742; }
+.book-reader-notice { background: rect(#efe4c7); overlay: border(-1, #b59c70); }
+.book-reader-notice-text { text-color: #5f472d; }
 
 .book-structure-project {
     base-background: rect(#d9c496);

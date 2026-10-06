@@ -4,13 +4,31 @@ import java.util.*;
 
 /** 与客户端渲染无关的书籍内容。页面 ID 和顺序共用，译文按语言分别保存。 */
 public final class Book {
-    public record Page(String id, String title, RichDocument document) {
+    public record Page(String id, String title, RichDocument document, String unlockHint) {
+        public Page {
+            unlockHint = Objects.requireNonNullElse(unlockHint, "");
+        }
+
+        public Page(String id, String title, RichDocument document) {
+            this(id, title, document, "");
+        }
+
         public Page withDocument(RichDocument value) {
-            return new Page(id, title, value);
+            return new Page(id, title, value, unlockHint);
         }
 
         public Page withTitle(String value) {
-            return new Page(id, value, document);
+            return new Page(id, value, document, unlockHint);
+        }
+
+        /**
+         * 创建替换解锁提示的页面，保留页面 ID、标题和文档。
+         *
+         * @param value 提示字符串；空白译文提示使用默认语言提示
+         * @return 替换提示后的页面
+         */
+        public Page withUnlockHint(String value) {
+            return new Page(id, title, document, value);
         }
     }
 
@@ -25,8 +43,13 @@ public final class Book {
     public String defaultLanguage = "en_us";
     public String title = "";
     public String author = "";
+    public boolean followGuiScale = true;
+    public boolean singlePage = false;
+    public boolean allowPageTurning = true;
+    public boolean lockedIcons = true;
     public final List<Page> pages = new ArrayList<>();
     public final Map<String, Translation> translations = new LinkedHashMap<>();
+    public final Map<String, String> requiredStages = new LinkedHashMap<>();
 
     public static Book empty(Schema schema) {
         var b = new Book();
@@ -80,6 +103,23 @@ public final class Book {
         return translation == null
                 ? original
                 : translation.pages().getOrDefault(original.id(), original);
+    }
+
+    /**
+     * 获取页面的解锁提示，空白译文提示回退到默认语言。
+     *
+     * @param pageId 共用的页面 ID 字符串
+     * @param language 已规范化的语言代码；不存在时使用默认语言
+     * @return 已解析的提示字符串；页面不存在时为空字符串
+     */
+    public String unlockHint(String pageId, String language) {
+        for (int i = 0; i < pages.size(); i++) {
+            var original = pages.get(i);
+            if (!original.id().equals(pageId)) continue;
+            String hint = page(i, language).unlockHint();
+            return hint.isBlank() ? original.unlockHint() : hint;
+        }
+        return "";
     }
 
     public boolean hasTranslation(int index, String language) {
@@ -155,7 +195,7 @@ public final class Book {
             var entries = new LinkedHashMap<String, Page>();
             for (int i = 0; i < pages.size(); i++) {
                 var p = page(i, locale);
-                entries.put(p.id(), p);
+                entries.put(p.id(), p.withUnlockHint(unlockHint(p.id(), locale)));
             }
             complete.put(locale, new Translation(title(locale), author(locale), entries));
         }
@@ -171,6 +211,7 @@ public final class Book {
 
     public void removePage(int index) {
         String pageId = pages.remove(index).id();
+        requiredStages.remove(pageId);
         translations.replaceAll(
                 (locale, translation) -> {
                     var entries = new LinkedHashMap<>(translation.pages());
@@ -182,12 +223,19 @@ public final class Book {
     public void duplicatePage(int index) {
         var source = pages.get(index);
         String newId = UUID.randomUUID().toString();
-        pages.add(index + 1, new Page(newId, source.title(), source.document()));
+        pages.add(
+                index + 1,
+                new Page(newId, source.title(), source.document(), source.unlockHint()));
+        if (requiredStages.containsKey(source.id()))
+            requiredStages.put(newId, requiredStages.get(source.id()));
         translations.replaceAll(
                 (locale, translation) -> {
                     var entries = new LinkedHashMap<>(translation.pages());
                     var p = entries.get(source.id());
-                    if (p != null) entries.put(newId, new Page(newId, p.title(), p.document()));
+                    if (p != null)
+                        entries.put(
+                                newId,
+                                new Page(newId, p.title(), p.document(), p.unlockHint()));
                     return new Translation(translation.title(), translation.author(), entries);
                 });
     }
@@ -211,12 +259,17 @@ public final class Book {
         b.defaultLanguage = languages().contains(language) ? language : defaultLanguage;
         b.title = title(language);
         b.author = author(language);
+        b.followGuiScale = followGuiScale;
+        b.singlePage = singlePage;
+        b.allowPageTurning = allowPageTurning;
+        b.lockedIcons = lockedIcons;
+        b.requiredStages.putAll(requiredStages);
         for (int i = 0; i < pages.size(); i++) {
             var p = page(i, language);
             var document = p.document().copy();
             // 作者保存的步骤选中位置不作为读者的初始进度。
             document.body().select("div[data-type=steps]").attr("currentstep", "0");
-            b.pages.add(p.withDocument(document));
+            b.pages.add(p.withDocument(document).withUnlockHint(unlockHint(p.id(), language)));
         }
         return b;
     }
@@ -227,6 +280,11 @@ public final class Book {
         b.defaultLanguage = defaultLanguage;
         b.title = title;
         b.author = author;
+        b.followGuiScale = followGuiScale;
+        b.singlePage = singlePage;
+        b.allowPageTurning = allowPageTurning;
+        b.lockedIcons = lockedIcons;
+        b.requiredStages.putAll(requiredStages);
         b.pages.addAll(pages);
         b.translations.putAll(translations);
         return b;

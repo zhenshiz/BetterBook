@@ -8,6 +8,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.*;
 import com.lowdragmc.lowdraglib2.gui.ui.event.*;
 import com.zhenshiz.betterbook.core.Book;
+import com.zhenshiz.betterbook.core.BookPageAccess;
 import com.zhenshiz.betterbook.data.*;
 
 import dev.vfyjxf.taffy.style.*;
@@ -29,6 +30,9 @@ final class BookRelatedPagesView extends UIElement {
     private final boolean editable;
     private BookRelatedPages data;
     private List<Book.Page> pages = List.of();
+    private BookPageAccess access;
+    private boolean lockedIcons = true;
+    private Consumer<String> lockedHint = id -> {};
     private String catalogKey = "", selection = "";
     private final Map<String, Button> buttons = new LinkedHashMap<>();
     private Consumer<String> selected = id -> {}, navigate = id -> {};
@@ -82,6 +86,13 @@ final class BookRelatedPagesView extends UIElement {
         if (data != null) rebuild();
     }
 
+    void pageAccess(BookPageAccess access, boolean lockedIcons, Consumer<String> lockedHint) {
+        this.access = access;
+        this.lockedIcons = lockedIcons;
+        this.lockedHint = lockedHint;
+        if (data != null) rebuild();
+    }
+
     void highlight(String id) {
         selection = id;
         buttons.forEach(
@@ -125,6 +136,7 @@ final class BookRelatedPagesView extends UIElement {
                     break;
                 }
             final boolean available = pageIndex >= 0;
+            final boolean locked = !editable && available && access != null && !access.canRead(entry.target);
             String label =
                     entry.name.isBlank()
                             ? available
@@ -142,7 +154,13 @@ final class BookRelatedPagesView extends UIElement {
                     .alignItems(AlignItems.CENTER)
                     .gapAll(2);
             if (!available) button.addClass("book-related-missing");
-            button.getStyle()
+            if (locked) button.addClass("book-related-locked");
+            if (locked) {
+                button.addEventListener(UIEvents.MOUSE_ENTER, e -> lockedHint.accept(entry.target));
+                button.addEventListener(UIEvents.TICK, e -> {
+                    if (button.isSelfOrChildHover()) lockedHint.accept(entry.target);
+                });
+            } else button.getStyle()
                     .tooltips(
                             available
                                     ? Component.translatable(
@@ -153,11 +171,13 @@ final class BookRelatedPagesView extends UIElement {
                                             entry.target.isBlank()
                                                     ? "gui.betterbook.related_unconfigured"
                                                     : "gui.betterbook.related_missing"));
-            var texture = texture(entry);
-            button.addChild(
-                    new UIElement()
+            var texture = locked && lockedIcons ? BookLocks.ICON : texture(entry);
+            var icon = new UIElement()
                             .layout(l -> l.width(22).height(22).flexShrink(0))
-                            .style(s -> s.background(texture)));
+                            .style(s -> s.background(texture));
+            icon.setId("related-icon-" + entry.id);
+            if (locked && lockedIcons) icon.addClass("book-lock-icon");
+            button.addChild(icon);
             if (data.showNames) {
                 var name = new Label().setText(label, false);
                 name.addClass("book-related-name");

@@ -3,6 +3,7 @@ package com.zhenshiz.betterbook.data;
 import com.lowdragmc.lowdraglib2.networking.rpc.RPCPacket;
 import com.lowdragmc.lowdraglib2.syncdata.rpc.RPCSender;
 import com.zhenshiz.betterbook.BetterBook;
+import com.zhenshiz.betterbook.api.BetterBookStages;
 import com.zhenshiz.betterbook.core.*;
 
 import net.minecraft.network.chat.Component;
@@ -60,7 +61,7 @@ public final class BookCommands {
                     Integer last = LAST_CLICK.put(player, tick);
                     if (last != null && tick - last < 5) return;
                     try {
-                        var command = find(server, bookId, pageId, language, actionId);
+                        var command = find(server, player, bookId, pageId, language, actionId);
                         if (command.isEmpty()) {
                             player.displayClientMessage(
                                     Component.translatable("gui.betterbook.command_unavailable"),
@@ -83,7 +84,12 @@ public final class BookCommands {
     }
 
     private static Optional<TextCommand> find(
-            MinecraftServer server, String bookId, String pageId, String language, String actionId)
+            MinecraftServer server,
+            ServerPlayer player,
+            String bookId,
+            String pageId,
+            String language,
+            String actionId)
             throws IOException {
         var schema = StandardSchema.create();
         Path root = directory();
@@ -100,14 +106,9 @@ public final class BookCommands {
                 while (candidates.hasNext()) {
                     var file = candidates.next();
                     try {
-                        var action =
-                                find(
-                                        BookFiles.read(file, schema),
-                                        bookId,
-                                        pageId,
-                                        language,
-                                        actionId);
-                        if (action.isPresent()) return action;
+                        var book = BookFiles.read(file, schema);
+                        var action = find(book, bookId, pageId, language, actionId);
+                        if (action.isPresent()) return authorize(book, player, pageId, action);
                     } catch (IOException | IllegalArgumentException e) {
                         BetterBook.LOGGER.warn("Cannot read command book {}", file, e);
                     }
@@ -118,12 +119,21 @@ public final class BookCommands {
                         .listResources("betterbook/books", id -> id.getPath().endsWith(".book"))
                         .values()) {
             try (var input = resource.open()) {
-                var action =
-                        find(BookFiles.read(input, schema), bookId, pageId, language, actionId);
-                if (action.isPresent()) return action;
+                var book = BookFiles.read(input, schema);
+                var action = find(book, bookId, pageId, language, actionId);
+                if (action.isPresent()) return authorize(book, player, pageId, action);
             }
         }
         return Optional.empty();
+    }
+
+    private static Optional<TextCommand> authorize(
+            Book book, ServerPlayer player, String pageId, Optional<TextCommand> action) {
+        String required = book.requiredStages.get(pageId);
+        // 命中后直接拒绝，不能继续从另一份旧书查找同一个绑定来绕过阶段要求。
+        return required == null || required.isBlank() || BetterBookStages.has(player, required)
+                ? action
+                : Optional.empty();
     }
 
     /**

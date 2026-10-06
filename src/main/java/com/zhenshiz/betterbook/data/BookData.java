@@ -13,6 +13,11 @@ public final class BookData implements IPersistedSerializable {
     @Persisted public int formatVersion = FORMAT_VERSION;
     @Persisted public String id = "";
     @Persisted public String defaultLanguage = "";
+    @Persisted public boolean followGuiScale = true;
+    @Persisted public boolean singlePage = false;
+    @Persisted public boolean allowPageTurning = true;
+    @Persisted public boolean lockedIcons = true;
+    @Persisted public Map<String, String> requiredStages = new LinkedHashMap<>();
     @Persisted public List<String> pageOrder = new ArrayList<>();
     @Persisted public List<LanguageData> languages = new ArrayList<>();
 
@@ -27,12 +32,18 @@ public final class BookData implements IPersistedSerializable {
         @Persisted public String id = "";
         @Persisted public String title = "";
         @Persisted public byte[] html = new byte[0];
+        @Persisted public String unlockHint = "";
     }
 
     public static BookData from(Book book) {
         var data = new BookData();
         data.id = book.id;
         data.defaultLanguage = book.defaultLanguage;
+        data.followGuiScale = book.followGuiScale;
+        data.singlePage = book.singlePage;
+        data.allowPageTurning = book.allowPageTurning;
+        data.lockedIcons = book.lockedIcons;
+        data.requiredStages.putAll(book.requiredStages);
         book.pages.forEach(p -> data.pageOrder.add(p.id()));
         for (String language : book.languages()) {
             var entry = new LanguageData();
@@ -52,6 +63,7 @@ public final class BookData implements IPersistedSerializable {
         entry.id = p.id();
         entry.title = p.title();
         entry.html = p.document().html().getBytes(StandardCharsets.UTF_8);
+        entry.unlockHint = p.unlockHint();
         return entry;
     }
 
@@ -62,10 +74,21 @@ public final class BookData implements IPersistedSerializable {
         var book = new Book();
         book.id = id;
         book.defaultLanguage = Book.normalizeLanguage(defaultLanguage);
+        book.followGuiScale = followGuiScale;
+        book.singlePage = singlePage;
+        book.allowPageTurning = allowPageTurning;
+        book.lockedIcons = lockedIcons;
         var ids = new HashSet<String>();
         for (String pageId : pageOrder)
             if (pageId.isBlank() || !ids.add(pageId))
                 throw new IllegalArgumentException("Invalid or duplicate page ID");
+        if (requiredStages == null)
+            throw new IllegalArgumentException("Required stages must be a map");
+        for (var entry : requiredStages.entrySet()) {
+            if (!ids.contains(entry.getKey()))
+                throw new IllegalArgumentException("Invalid staged page ID: " + entry.getKey());
+            book.requiredStages.put(entry.getKey(), StageNames.normalize(entry.getValue()));
+        }
         var contents = new LinkedHashMap<String, Book.Translation>();
         for (var entry : languages) {
             String language = Book.normalizeLanguage(entry.language);
@@ -81,7 +104,8 @@ public final class BookData implements IPersistedSerializable {
                                 p.id,
                                 p.title,
                                 RichDocument.parse(
-                                        new String(p.html, StandardCharsets.UTF_8), schema)));
+                                        new String(p.html, StandardCharsets.UTF_8), schema),
+                                p.unlockHint));
             }
             contents.put(language, new Book.Translation(entry.title, entry.author, pages));
         }

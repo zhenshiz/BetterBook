@@ -152,7 +152,10 @@ public final class ServerBooks {
 
     private static void send(ServerPlayer player, Loaded loaded, boolean editor) {
         if (editor) PlayerUIMenuType.openUI(player, BookMenus.EDITOR);
-        else player.closeContainer();
+        else {
+            player.closeContainer();
+            PlayerStages.sync(player);
+        }
         String transfer = UUID.randomUUID().toString();
         int total = (loaded.bytes.length + CHUNK_SIZE - 1) / CHUNK_SIZE;
         RPCPacketDistributor.rpcToPlayer(

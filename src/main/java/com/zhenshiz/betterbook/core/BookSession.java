@@ -356,6 +356,70 @@ public final class BookSession {
         transactMetadata(() -> book.rename(language, title, author));
     }
 
+    /**
+     * 设置整本书的阅读界面是否跟随 Minecraft GUI 比例，支持撤销与重做。
+     *
+     * @param follow 是否跟随玩家的 GUI 比例；关闭时按窗口尺寸自动缩放
+     */
+    public void setFollowGuiScale(boolean follow) {
+        if (book.followGuiScale == follow) return;
+        transactMetadata(() -> book.followGuiScale = follow);
+    }
+
+    /**
+     * 设置整本书是否使用单页阅读布局，支持撤销与重做。
+     *
+     * @param value 是否使用单页布局
+     */
+    public void setSinglePage(boolean value) {
+        if (book.singlePage == value) return;
+        transactMetadata(() -> book.singlePage = value);
+    }
+
+    /**
+     * 设置整本书是否允许通过翻页控件导航，支持撤销与重做。
+     *
+     * @param value 是否允许翻页
+     */
+    public void setAllowPageTurning(boolean value) {
+        if (book.allowPageTurning == value) return;
+        transactMetadata(() -> book.allowPageTurning = value);
+    }
+
+    /**
+     * 设置整本书是否显示锁定页面图标，支持撤销与重做。
+     *
+     * @param value 是否显示锁定图标
+     */
+    public void setLockedIcons(boolean value) {
+        if (book.lockedIcons == value) return;
+        transactMetadata(() -> book.lockedIcons = value);
+    }
+
+    /**
+     * 在一个可撤销事务中设置当前页面的共用阶段要求和当前语言提示。
+     *
+     * @param stage 阶段名称字符串；空白字符串移除阶段要求
+     * @param hint 当前语言的提示字符串；空白译文提示回退到默认语言
+     * @throws IllegalArgumentException 非空阶段名称不符合阶段命名规则时抛出
+     */
+    public void setPageAccess(String stage, String hint) {
+        String normalized = stage != null && stage.isBlank() ? "" : StageNames.normalize(stage);
+        String text = Objects.requireNonNullElse(hint, "");
+        String pageId = page().id();
+        boolean sameStage =
+                normalized.isEmpty()
+                        ? !book.requiredStages.containsKey(pageId)
+                        : normalized.equals(book.requiredStages.get(pageId));
+        if (sameStage && page().unlockHint().equals(text)) return;
+        transactMetadata(
+                () -> {
+                    if (normalized.isEmpty()) book.requiredStages.remove(pageId);
+                    else book.requiredStages.put(pageId, normalized);
+                    putPage(page().withUnlockHint(text));
+                });
+    }
+
     public void renamePage(String title) {
         transactMetadata(() -> putPage(page().withTitle(title)));
     }
@@ -398,12 +462,25 @@ public final class BookSession {
                 });
     }
 
-    /** 一页的剪贴板内容；HTML 快照不会被后续编辑改变。 */
-    public record PageText(String title, String html) {}
+    /** 一页的剪贴板内容；正文和已解析提示的快照不会被后续编辑改变。 */
+    public record PageText(String title, String html, String unlockHint) {
+        public PageText {
+            unlockHint = Objects.requireNonNullElse(unlockHint, "");
+        }
 
-    public record PageCopy(String defaultLanguage, Map<String, PageText> languages) {
+        public PageText(String title, String html) {
+            this(title, html, "");
+        }
+    }
+
+    public record PageCopy(String defaultLanguage, Map<String, PageText> languages, String stage) {
         public PageCopy {
             languages = Map.copyOf(languages);
+            stage = stage.isBlank() ? "" : StageNames.normalize(stage);
+        }
+
+        public PageCopy(String defaultLanguage, Map<String, PageText> languages) {
+            this(defaultLanguage, languages, "");
         }
     }
 
@@ -412,9 +489,13 @@ public final class BookSession {
         var content = new LinkedHashMap<String, PageText>();
         for (String locale : book.languages()) {
             var p = book.page(page, locale);
-            content.put(locale, new PageText(p.title(), p.document().html()));
+            content.put(
+                    locale,
+                    new PageText(
+                            p.title(), p.document().html(), book.unlockHint(p.id(), locale)));
         }
-        return new PageCopy(book.defaultLanguage, content);
+        return new PageCopy(
+                book.defaultLanguage, content, book.requiredStages.getOrDefault(page().id(), ""));
     }
 
     public void pastePage(PageCopy copy) {
@@ -430,11 +511,13 @@ public final class BookSession {
                                                 id,
                                                 text.title(),
                                                 RichDocument.parse(
-                                                        text.html(), document().schema()))));
+                                                        text.html(), document().schema()),
+                                                text.unlockHint())));
         transactMetadata(
                 () -> {
                     var fallback = parsed.get(copy.defaultLanguage());
                     book.pages.add(page + 1, parsed.getOrDefault(book.defaultLanguage, fallback));
+                    if (!copy.stage().isEmpty()) book.requiredStages.put(id, copy.stage());
                     page++;
                     for (String locale : parsed.keySet()) {
                         if (!book.languages().contains(locale))

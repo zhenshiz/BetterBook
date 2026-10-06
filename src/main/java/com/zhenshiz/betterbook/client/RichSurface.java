@@ -49,6 +49,37 @@ public final class RichSurface extends TextElement implements AutoCloseable {
     private java.util.function.BiConsumer<Integer, String> relatedHandler = (index, entry) -> {};
     private Consumer<com.zhenshiz.betterbook.data.BookRelatedPages> relatedChanged = data -> {};
     private Book navigationBook;
+    private BookPageAccess pageAccess;
+    private Consumer<String> lockedPageHint = id -> {};
+
+    /**
+     * 将锁定入口的悬停提示交给阅读器统一显示。
+     *
+     * @param handler 接收目标页面 ID 的提示回调
+     */
+    public void onLockedPageHint(Consumer<String> handler) {
+        lockedPageHint = handler;
+    }
+
+    /**
+     * 将书内链接和入口的显示绑定到读者的页面访问条件。
+     *
+     * @param access 当前书籍的页面访问判断
+     */
+    public void pageAccess(BookPageAccess access) {
+        pageAccess = access;
+        refreshPageAccess();
+    }
+
+    /** 刷新阶段变化后的书内入口，不修改文档。 */
+    public void refreshPageAccess() {
+        layoutRevision = -1;
+    }
+
+    private boolean lockedLink(String href) {
+        return !editable && pageAccess != null && href.startsWith("book:")
+                && pageAccess.contains(href.substring(5)) && !pageAccess.canRead(href.substring(5));
+    }
 
     public void onRelatedPages(
             java.util.function.BiConsumer<Integer, String> handler,
@@ -373,6 +404,8 @@ public final class RichSurface extends TextElement implements AutoCloseable {
             if (view != null) {
                 if (view instanceof BookRelatedPagesView related) {
                     related.pages(relatedPages());
+                    if (pageAccess != null)
+                        related.pageAccess(pageAccess, navigationBook == null || navigationBook.lockedIcons, lockedPageHint);
                     related.highlight(selectedRelatedEntry);
                     related.callbacks(
                             entry -> {
@@ -640,6 +673,7 @@ public final class RichSurface extends TextElement implements AutoCloseable {
             for (var glyph : layout.glyphs) {
                 var click = glyph.text().getStyle().getClickEvent();
                 if (click != null
+                        && !lockedLink(glyph.href())
                         && click.getAction()
                                 == net.minecraft.network.chat.ClickEvent.Action.RUN_COMMAND
                         && x >= glyph.x()
@@ -1185,6 +1219,11 @@ public final class RichSurface extends TextElement implements AutoCloseable {
         for (var g : layout.glyphs) {
             float gx = x + g.x(), gy = y + g.y() - scroll;
             if (gy + g.height() < y || gy > y + getContentHeight()) continue;
+            boolean lockedLink = lockedLink(g.href());
+            if (lockedLink && isSelfOrChildHover()
+                    && c.localMouseX >= gx && c.localMouseX < gx + g.width()
+                    && c.localMouseY >= gy && c.localMouseY < gy + g.height())
+                lockedPageHint.accept(g.href().substring(5));
             if (renderedBlock != g.block()) {
                 renderedBlock = g.block();
                 blockColor = color;
@@ -1216,10 +1255,10 @@ public final class RichSurface extends TextElement implements AutoCloseable {
             c.pose.scale(g.scale(), g.scale(), 1);
             c.graphics.drawString(
                     c.mc.font,
-                    g.text(),
+                    lockedLink ? g.text().copy().withStyle(style -> style.withColor(0x8b7657)) : g.text(),
                     0,
                     0,
-                    (g.href().isEmpty() ? g.inlineCode() ? inlineText : blockColor : 0xff3c91bc)
+                    (lockedLink ? 0xff8b7657 : g.href().isEmpty() ? g.inlineCode() ? inlineText : blockColor : 0xff3c91bc)
                                     & 0x00ffffff
                             | textAlpha << 24,
                     false);
