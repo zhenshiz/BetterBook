@@ -38,6 +38,22 @@ public final class BookFiles {
         }
     }
 
+    /**
+     * 读取服务端已校验的书籍，保留未查看页面的源码以避免阻塞客户端帧。
+     *
+     * @param input 完整书籍输入流，读取后关闭
+     * @param schema 客户端节点定义
+     * @return 正文按需解析的书籍，目录和阶段元数据已校验
+     * @throws IOException 文件读取失败
+     */
+    public static Book readForReading(InputStream input, Schema schema) throws IOException {
+        try (var in = new DataInputStream(input)) {
+            var tag = NbtIo.read(in, NbtAccounter.create(64L * 1024 * 1024));
+            return BookData.load(Platform.getFrozenRegistry(), tag.getCompound("data"))
+                    .toReadingBook(schema);
+        }
+    }
+
     public static void write(Path path, CompoundTag tag) throws IOException {
         Path target = path.toAbsolutePath();
         Files.createDirectories(target.getParent());

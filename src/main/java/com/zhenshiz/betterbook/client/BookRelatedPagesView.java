@@ -26,13 +26,57 @@ import java.util.function.Consumer;
 final class BookRelatedPagesView extends UIElement {
     private record Drag(BookRelatedPagesView owner, String entry) {}
 
+    private static final class NameLabel extends Label {
+        private final String fullName;
+        private boolean fitting;
+
+        private NameLabel(String fullName) {
+            this.fullName = fullName;
+            setText(fullName, false);
+            getLayout().widthPercent(100).height(20).flexShrink(0).minWidth(0);
+            getStyle().overflowVisible(false);
+            textStyle(s -> s.textWrap(TextWrap.WRAP).textShadow(false).adaptiveWidth(false).adaptiveHeight(false)
+                    .textAlignHorizontal(Horizontal.CENTER));
+        }
+
+        @Override
+        public void recompute() {
+            // Label 的构造和字体/宽度变化均会触发此方法；始终从完整名称重新排版。
+            if (fullName != null && !fitting && getContentWidth() > 0 && getTextStyle().fontSize() > 0) {
+                var style = net.minecraft.network.chat.Style.EMPTY.withFont(getTextStyle().font());
+                var splitter = getFont().getSplitter();
+                int width = Math.max(1, (int) (getContentWidth() * getFont().lineHeight / getTextStyle().fontSize()));
+                var lines = splitter.splitLines(fullName, width, style);
+                int limit = Math.max(1, Math.min(2, (int) ((getContentHeight() + getTextStyle().lineSpacing())
+                        / (getTextStyle().fontSize() + getTextStyle().lineSpacing()))));
+                String visible = fullName;
+                if (lines.size() > limit) {
+                    String ellipsis = "…";
+                    int remaining = Math.max(0, width - (int) Math.ceil(splitter.stringWidth(
+                            Component.literal(ellipsis).withStyle(style))));
+                    var shown = new ArrayList<String>();
+                    for (int i = 0; i < limit - 1; i++) shown.add(lines.get(i).getString());
+                    shown.add(splitter.headByWidth(lines.get(limit - 1), remaining, style).getString().stripTrailing() + ellipsis);
+                    visible = String.join("\n", shown);
+                }
+                if (!getText().getString().equals(visible)) {
+                    fitting = true;
+                    try { setText(visible, false); }
+                    finally { fitting = false; }
+                    return;
+                }
+            }
+            super.recompute();
+        }
+    }
+
     private final String source;
     private final boolean editable;
     private BookRelatedPages data;
     private List<Book.Page> pages = List.of();
     private BookPageAccess access;
     private boolean lockedIcons = true;
-    private String catalogKey = "", selection = "";
+    private String catalogKey = "", accessKey = "", selection = "";
     private final Map<String, Button> buttons = new LinkedHashMap<>();
     private Consumer<String> selected = id -> {}, navigate = id -> {};
     private Consumer<BookRelatedPages> changed = value -> {};
@@ -43,7 +87,6 @@ final class BookRelatedPagesView extends UIElement {
         addClass("book-related-pages");
         try {
             data = BookRelatedPages.read(element, Platform.getFrozenRegistry());
-            rebuild();
         } catch (IllegalArgumentException e) {
             addChild(
                     new Label()
@@ -77,18 +120,18 @@ final class BookRelatedPagesView extends UIElement {
         this.navigate = navigate;
     }
 
-    void pages(List<Book.Page> pages) {
+    void configure(List<Book.Page> pages, BookPageAccess access, boolean lockedIcons) {
+        if (data == null) return;
         String key = pages.stream().map(p -> p.id() + ":" + p.title()).toList().toString();
-        if (key.equals(catalogKey)) return;
+        String locks = data.entries.stream()
+                .map(entry -> access == null || access.canRead(entry.target)).toList().toString();
+        if (key.equals(catalogKey) && locks.equals(accessKey) && this.lockedIcons == lockedIcons) return;
         this.pages = List.copyOf(pages);
         catalogKey = key;
-        if (data != null) rebuild();
-    }
-
-    void pageAccess(BookPageAccess access, boolean lockedIcons) {
+        accessKey = locks;
         this.access = access;
         this.lockedIcons = lockedIcons;
-        if (data != null) rebuild();
+        rebuild();
     }
 
     void highlight(String id) {
@@ -148,22 +191,18 @@ final class BookRelatedPagesView extends UIElement {
             button.getLayout()
                     .positionType(TaffyPosition.ABSOLUTE)
                     .flexDirection(FlexDirection.COLUMN)
-                    .paddingAll(3)
+                    .paddingHorizontal(3)
+                    .paddingVertical(2)
                     .alignItems(AlignItems.CENTER)
                     .gapAll(2);
             if (!available) button.addClass("book-related-missing");
             if (locked) button.addClass("book-related-locked");
-            button.getStyle()
-                    .tooltips(
-                            locked ? BookLocks.message(access, entry.target) : available
-                                    ? Component.translatable(
-                                            "gui.betterbook.related_page_candidate",
-                                            pageIndex + 1,
-                                            label)
-                                    : Component.translatable(
-                                            entry.target.isBlank()
-                                                    ? "gui.betterbook.related_unconfigured"
-                                                    : "gui.betterbook.related_missing"));
+            var tooltip = locked ? BookLocks.message(access, entry.target) : available
+                    ? Component.translatable("gui.betterbook.related_page_candidate", pageIndex + 1, label)
+                    : Component.translatable(entry.target.isBlank()
+                            ? "gui.betterbook.related_unconfigured" : "gui.betterbook.related_missing");
+            if (locked || !available) button.getStyle().tooltips(Component.literal(label), tooltip);
+            else button.getStyle().tooltips(tooltip);
             var texture = locked && lockedIcons ? BookLocks.ICON : texture(entry);
             var icon = new UIElement()
                             .layout(l -> l.width(22).height(22).flexShrink(0))
@@ -172,14 +211,8 @@ final class BookRelatedPagesView extends UIElement {
             if (locked && lockedIcons) icon.addClass("book-lock-icon");
             button.addChild(icon);
             if (data.showNames) {
-                var name = new Label().setText(label, false);
+                var name = new NameLabel(label);
                 name.addClass("book-related-name");
-                name.getLayout().widthPercent(100).height(20);
-                name.textStyle(
-                        s ->
-                                s.textWrap(TextWrap.WRAP)
-                                        .textShadow(false)
-                                        .textAlignHorizontal(Horizontal.CENTER));
                 button.addChild(name);
             }
             if (editable) {

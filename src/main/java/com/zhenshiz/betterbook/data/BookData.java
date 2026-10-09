@@ -34,7 +34,9 @@ public final class BookData implements IPersistedSerializable {
     public static final class PageData implements IPersistedSerializable {
         @Persisted public String id = "";
         @Persisted public String title = "";
-        @Persisted public byte[] html = new byte[0];
+        // 整段字节交给 LDLib2 的 Tag 访问器，避免为正文的每个字节创建追踪引用。
+        // 磁盘上仍是相同的 NBT ByteArray，兼容已有 .book。
+        @Persisted public ByteArrayTag html = new ByteArrayTag(new byte[0]);
         @Persisted public List<String> unlockHint = new ArrayList<>();
     }
 
@@ -108,12 +110,26 @@ public final class BookData implements IPersistedSerializable {
         var entry = new PageData();
         entry.id = p.id();
         entry.title = p.title();
-        entry.html = p.document().html().getBytes(StandardCharsets.UTF_8);
+        entry.html = new ByteArrayTag(p.document().html().getBytes(StandardCharsets.UTF_8));
         entry.unlockHint = new ArrayList<>(p.unlockHint());
         return entry;
     }
 
     public Book toBook(Schema schema) {
+        return toBook(schema, false);
+    }
+
+    /**
+     * 加载完整目录及阶段元数据，正文按需解析；只用于服务端已校验书籍的客户端阅读。
+     *
+     * @param schema 客户端节点定义
+     * @return 正文延迟解析的书籍
+     */
+    public Book toReadingBook(Schema schema) {
+        return toBook(schema, true);
+    }
+
+    private Book toBook(Schema schema, boolean deferred) {
         if (formatVersion != FORMAT_VERSION)
             throw new IllegalArgumentException("Unsupported book version: " + formatVersion);
         if (pageOrder.isEmpty()) throw new IllegalArgumentException("Book contains no pages");
@@ -145,13 +161,14 @@ public final class BookData implements IPersistedSerializable {
             for (var p : entry.pages) {
                 if (!ids.contains(p.id) || pages.containsKey(p.id))
                     throw new IllegalArgumentException("Invalid translated page ID: " + p.id);
+                String html = new String(p.html.getAsByteArray(), StandardCharsets.UTF_8);
                 pages.put(
                         p.id,
                         new Book.Page(
                                 p.id,
                                 p.title,
-                                RichDocument.parse(
-                                        new String(p.html, StandardCharsets.UTF_8), schema),
+                                deferred ? RichDocument.deferred(html, schema)
+                                        : RichDocument.parse(html, schema),
                                 p.unlockHint));
             }
             contents.put(language, new Book.Translation(entry.title, entry.author, pages));

@@ -302,6 +302,19 @@ public final class BookReaderScreen extends ModularUIScreen {
                     spread.addChild(paper);
                     continue;
                 }
+                try {
+                    // 只解析当前允许阅读的正文；未访问和锁定页继续保留源码。
+                    p.document().blocks();
+                } catch (IllegalArgumentException failure) {
+                    var error = new Label().setText(Component.translatable(
+                            "gui.betterbook.read_failed", failure.getMessage()));
+                    error.getLayout().widthPercent(100).heightAuto();
+                    error.textStyle(style -> style.adaptiveWidth(false).adaptiveHeight(true)
+                            .textWrap(TextWrap.WRAP));
+                    paper.addChild(error);
+                    spread.addChild(paper);
+                    continue;
+                }
                 var surface =
                         surfaces.computeIfAbsent(
                                 p.id(),

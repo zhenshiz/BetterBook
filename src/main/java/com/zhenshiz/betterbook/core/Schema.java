@@ -1,6 +1,8 @@
 package com.zhenshiz.betterbook.core;
 
 import org.jsoup.nodes.Element;
+import org.jsoup.select.Evaluator;
+import org.jsoup.select.Selector;
 
 import java.util.*;
 import java.util.function.Consumer;
@@ -60,6 +62,7 @@ public final class Schema {
 
     private final LinkedHashMap<String, NodeSpec> nodes = new LinkedHashMap<>();
     private final LinkedHashMap<String, MarkSpec> marks = new LinkedHashMap<>();
+    private final Map<String, Evaluator> selectors = new HashMap<>();
 
     /**
      * 注册节点，HTML 匹配按注册顺序执行。
@@ -71,6 +74,7 @@ public final class Schema {
         requireId(spec.id());
         if (nodes.putIfAbsent(spec.id(), spec) != null)
             throw new IllegalArgumentException("Duplicate node: " + spec.id());
+        cacheSelector(spec.selector());
     }
 
     /**
@@ -83,6 +87,19 @@ public final class Schema {
         requireId(spec.id());
         if (marks.putIfAbsent(spec.id(), spec) != null)
             throw new IllegalArgumentException("Duplicate mark: " + spec.id());
+        cacheSelector(spec.selector());
+    }
+
+    private void cacheSelector(String selector) {
+        // 简单标签/属性选择器可复用；结构伪类及关系选择器有内部匹配缓存，
+        // 编辑 DOM 后需要重新求值，因此仍使用 jsoup 的字符串入口。
+        if (selector.chars().noneMatch(c -> Character.isWhitespace(c) || ":>+~".indexOf(c) >= 0))
+            selectors.computeIfAbsent(selector, Selector::evaluatorOf);
+    }
+
+    private boolean matches(Element element, String selector) {
+        var compiled = selectors.get(selector);
+        return compiled == null ? element.is(selector) : element.is(compiled);
     }
 
     /**
@@ -103,7 +120,7 @@ public final class Schema {
      * @return 已注册定义，无匹配时为 null
      */
     public NodeSpec node(Element element) {
-        for (var spec : nodes.values()) if (element.is(spec.selector())) return spec;
+        for (var spec : nodes.values()) if (matches(element, spec.selector())) return spec;
         return null;
     }
 
@@ -114,7 +131,7 @@ public final class Schema {
      * @return 已注册定义，无匹配时为 null
      */
     public MarkSpec mark(Element element) {
-        for (var spec : marks.values()) if (element.is(spec.selector())) return spec;
+        for (var spec : marks.values()) if (matches(element, spec.selector())) return spec;
         return null;
     }
 

@@ -83,10 +83,10 @@ public final class RuntimeBooks {
                     if (++pending.next != pending.total) return;
                     download = null;
                     try {
-                        var book =
-                                BookFiles.read(
-                                        new ByteArrayInputStream(pending.bytes.toByteArray()),
-                                        BookExtensions.create().schema);
+                        var input = new ByteArrayInputStream(pending.bytes.toByteArray());
+                        var schema = BookExtensions.create().schema;
+                        var book = pending.editor ? BookFiles.read(input, schema)
+                                : BookFiles.readForReading(input, schema);
                         if (pending.editor) {
                             if (!(mc.screen instanceof ModularUIContainerScreen screen)
                                     || screen.getMenu().containerId != pending.menu) return;

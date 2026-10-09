@@ -39,14 +39,44 @@ public final class RichDocument {
         }
     }
 
-    private final Document dom;
+    private Document dom;
     private final Schema schema;
     private List<Block> blocks;
+    private String pendingHtml;
+    private boolean resetReadingSteps;
 
     private RichDocument(Document dom, Schema schema) {
         this.dom = dom;
         this.schema = schema;
         dom.outputSettings().prettyPrint(false).charset(java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    private RichDocument(String html, Schema schema) {
+        this.pendingHtml = Objects.requireNonNull(html);
+        this.schema = schema;
+    }
+
+    /**
+     * 保留正文源码，首次访问节点时才解析；用于服务端已校验的阅读内容。
+     *
+     * @param html HTML 片段
+     * @param schema 节点定义
+     * @return 尚未创建 DOM 的独立文档，语法错误在访问节点时抛出
+     */
+    public static RichDocument deferred(String html, Schema schema) {
+        return new RichDocument(html, schema);
+    }
+
+    private void materialize() {
+        if (dom != null) return;
+        var parsed = parse(pendingHtml, schema);
+        dom = parsed.dom;
+        blocks = parsed.blocks;
+        pendingHtml = null;
+        if (resetReadingSteps) {
+            dom.body().select("div[data-type=steps]").attr("currentstep", "0");
+            blocks = null;
+        }
     }
 
     /**
@@ -75,10 +105,28 @@ public final class RichDocument {
     }
 
     public RichDocument copy() {
+        if (dom == null) {
+            var copy = deferred(pendingHtml, schema);
+            copy.resetReadingSteps = resetReadingSteps;
+            return copy;
+        }
         return new RichDocument(dom.clone(), schema);
     }
 
+    /**
+     * 创建读者独立副本，首次查看时从步骤一开始，不提前解析未查看的页面。
+     *
+     * @return 与原文档隔离的阅读文档
+     */
+    public RichDocument readingCopy() {
+        var copy = copy();
+        if (copy.dom == null) copy.resetReadingSteps = true;
+        else copy.dom.body().select("div[data-type=steps]").attr("currentstep", "0");
+        return copy;
+    }
+
     public Element body() {
+        materialize();
         return dom.body();
     }
 
@@ -91,6 +139,7 @@ public final class RichDocument {
     }
 
     public String html() {
+        materialize();
         var copy = dom.clone();
         encodeTree(copy.body());
         return copy.body().html();
@@ -102,6 +151,7 @@ public final class RichDocument {
      * @return 使用两空格缩进的 HTML 片段
      */
     public String sourceHtml() {
+        materialize();
         var copy = dom.clone();
         encodeTree(copy.body());
         var out = new StringBuilder();
@@ -219,6 +269,7 @@ public final class RichDocument {
     }
 
     public List<Block> blocks() {
+        materialize();
         if (blocks == null) {
             var list = new ArrayList<Block>();
             walk(dom.body(), list);

@@ -394,9 +394,8 @@ public final class RichSurface extends TextElement implements AutoCloseable {
                                                         })));
             if (view != null) {
                 if (view instanceof BookRelatedPagesView related) {
-                    related.pages(relatedPages());
-                    if (pageAccess != null)
-                        related.pageAccess(pageAccess, navigationBook == null || navigationBook.lockedIcons);
+                    related.configure(relatedPages(), pageAccess,
+                            navigationBook == null || navigationBook.lockedIcons);
                     related.highlight(selectedRelatedEntry);
                     related.callbacks(
                             entry -> {

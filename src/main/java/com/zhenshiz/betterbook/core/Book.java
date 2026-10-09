@@ -284,9 +284,7 @@ public final class Book {
         requiredStages.forEach((key, value) -> b.requiredStages.put(key, value == null ? null : List.copyOf(value)));
         for (int i = 0; i < pages.size(); i++) {
             var p = page(i, language);
-            var document = p.document().copy();
-            // 作者保存的步骤选中位置不作为读者的初始进度。
-            document.body().select("div[data-type=steps]").attr("currentstep", "0");
+            var document = p.document().readingCopy();
             b.pages.add(p.withDocument(document).withUnlockHint(unlockHint(p.id(), language)));
         }
         return b;
