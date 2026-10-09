@@ -23,9 +23,7 @@ public final class BookFiles {
     }
 
     public static Book decode(CompoundTag tag, Schema schema) {
-        var data = new BookData();
-        data.deserializeNBT(Platform.getFrozenRegistry(), tag.getCompound("data"));
-        return data.toBook(schema);
+        return BookData.load(Platform.getFrozenRegistry(), tag.getCompound("data")).toBook(schema);
     }
 
     public static Book read(Path path, Schema schema) throws IOException {

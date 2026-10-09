@@ -1,6 +1,7 @@
 package com.zhenshiz.betterbook.core;
 
 import java.util.Objects;
+import java.util.List;
 import java.util.function.Predicate;
 
 /** 根据共用阶段要求判断页面访问权限，读取书籍的当前页面顺序和提示。 */
@@ -20,15 +21,15 @@ public final class BookPageAccess {
     }
 
     /**
-     * 判断页面存在且阶段要求为空白或未设置，或读者拥有其要求的阶段。
+     * 判断页面存在且读者拥有全部所需阶段，空白条目不限制阅读。
      *
      * @param pageId 共用的页面 ID 字符串
      * @return 页面存在且允许阅读时为 <code>true</code>
      */
     public boolean canRead(String pageId) {
         if (!contains(pageId)) return false;
-        String stage = book.requiredStages.get(pageId);
-        return stage == null || stage.isBlank() || hasStage.test(stage);
+        var stages = book.requiredStages.get(pageId);
+        return stages == null || stages.stream().allMatch(stage -> stage.isBlank() || hasStage.test(stage));
     }
 
     /**
@@ -57,9 +58,9 @@ public final class BookPageAccess {
      * 获取书籍当前默认语言的已解析解锁提示。
      *
      * @param pageId 共用的页面 ID 字符串
-     * @return 提示字符串；提示为空或页面不存在时允许返回空字符串
+     * @return 提示行列表；提示为空或页面不存在时返回空列表
      */
-    public String unlockHint(String pageId) {
+    public List<String> unlockHint(String pageId) {
         return book.unlockHint(pageId, book.defaultLanguage);
     }
 }

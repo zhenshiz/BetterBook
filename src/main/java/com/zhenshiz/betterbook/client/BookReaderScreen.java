@@ -25,11 +25,15 @@ import java.util.*;
 
 /** 支持单页、双页和阶段访问的阅读器；读者状态使用独立副本。 */
 public final class BookReaderScreen extends ModularUIScreen {
+    private static final float SINGLE_WIDTH = 210, SINGLE_HEIGHT = 300, SINGLE_CONTENT_SCALE = .8f;
+
     private static final class Root extends UIElement {
         private final boolean followGuiScale;
+        private final boolean singlePage;
 
-        private Root(boolean followGuiScale) {
+        private Root(boolean followGuiScale, boolean singlePage) {
             this.followGuiScale = followGuiScale;
+            this.singlePage = singlePage;
         }
 
         private int autoScale() {
@@ -38,12 +42,22 @@ public final class BookReaderScreen extends ModularUIScreen {
         }
 
         private Size canvasSize(Size screenSize) {
-            if (followGuiScale) return screenSize;
-            var window = Minecraft.getInstance().getWindow();
-            int scale = autoScale();
-            return Size.of(
-                    (int) Math.ceil(window.getWidth() / (double) scale),
-                    (int) Math.ceil(window.getHeight() / (double) scale));
+            Size size = screenSize;
+            if (!followGuiScale) {
+                var window = Minecraft.getInstance().getWindow();
+                int scale = autoScale();
+                size = Size.of(
+                        (int) Math.ceil(window.getWidth() / (double) scale),
+                        (int) Math.ceil(window.getHeight() / (double) scale));
+            }
+            if (singlePage) {
+                // 同时约束宽高，窗口变矮时仍保持竖版比例。
+                float fit = Math.min(1, Math.min(size.width * .96f / SINGLE_WIDTH,
+                        size.height * .92f / SINGLE_HEIGHT));
+                selectId("reader-book").findFirst().ifPresent(shell ->
+                        shell.getLayout().width(SINGLE_WIDTH * fit).height(SINGLE_HEIGHT * fit));
+            }
+            return size;
         }
 
         @Override
@@ -101,7 +115,7 @@ public final class BookReaderScreen extends ModularUIScreen {
     }
 
     private BookReaderScreen(Book book, Screen back, String language, boolean authorPreview) {
-        this(book.localized(language), back, new Root(book.followGuiScale), authorPreview);
+        this(book.localized(language), back, new Root(book.followGuiScale, book.singlePage), authorPreview);
     }
 
     private BookReaderScreen(Book source, Screen back, Root root, boolean authorPreview) {
@@ -133,7 +147,8 @@ public final class BookReaderScreen extends ModularUIScreen {
                 .justifyContent(AlignContent.CENTER);
         var shell = new UIElement().addClass("book-reader-spread");
         shell.setId("reader-book");
-        shell.getLayout().width(book.singlePage ? 270 : 540).maxWidthPercent(96).height(330).maxHeightPercent(92);
+        shell.getLayout().width(book.singlePage ? SINGLE_WIDTH : 540).maxWidthPercent(96)
+                .height(book.singlePage ? SINGLE_HEIGHT : 330).maxHeightPercent(92);
         spread.setId("book-spread");
         spread.getLayout()
                 .flexDirection(FlexDirection.ROW)
@@ -182,8 +197,8 @@ public final class BookReaderScreen extends ModularUIScreen {
         rightNavigation.addChildren(backButton, new UIElement().layout(l -> l.flex(1)));
         if (book.allowPageTurning) rightNavigation.addChild(nextButton);
         if (book.singlePage) {
-            buttons.addChild(backButton);
             if (book.allowPageTurning) buttons.addChild(previousButton);
+            buttons.addChild(backButton);
             buttons.addChildren(new UIElement().layout(l -> l.flex(1)), pageNumber);
             if (book.allowPageTurning) buttons.addChild(nextButton);
         } else buttons.addChildren(leftNavigation, rightNavigation);
@@ -209,8 +224,7 @@ public final class BookReaderScreen extends ModularUIScreen {
         noticeText.getLayout().width(0).flex(1).minWidth(0).heightAuto();
         noticeText.textStyle(s -> s.adaptiveWidth(false).adaptiveHeight(true)
                 .textWrap(TextWrap.WRAP).textShadow(false));
-        notice.addChildren(new UIElement().layout(l -> l.width(16).height(16).flexShrink(0))
-                .style(s -> s.background(BookLocks.ICON)), noticeText);
+        notice.addChild(noticeText);
         noticeHost.addChild(notice);
         noticeHost.setDisplay(false);
         root.addChild(noticeHost);
@@ -299,7 +313,6 @@ public final class BookReaderScreen extends ModularUIScreen {
                                     var s = new RichSurface(new BookSession(single), ext, false);
                                     s.navigationBook(book);
                                     s.pageAccess(access);
-                                    s.onLockedPageHint(targetPage -> showNotice(BookLocks.message(access, targetPage)));
                                     s.setId("reader-content-" + index);
                                     s.onLink(href -> openLink(href, s));
                                     s.onCommand(
@@ -318,7 +331,17 @@ public final class BookReaderScreen extends ModularUIScreen {
                                             });
                                     return s;
                                 });
-                paper.addChild(surface);
+                if (book.singlePage) {
+                    var viewport = new UIElement();
+                    viewport.setId("reader-viewport-" + index);
+                    viewport.getLayout().widthPercent(100).heightPercent(100).minWidth(0).minHeight(0);
+                    viewport.setOverflowVisible(false);
+                    surface.getLayout().positionType(TaffyPosition.ABSOLUTE).left(0).top(0)
+                            .widthPercent(100 / SINGLE_CONTENT_SCALE).heightPercent(100 / SINGLE_CONTENT_SCALE);
+                    surface.transform(t -> t.pivot(0, 0).scale(SINGLE_CONTENT_SCALE));
+                    viewport.addChild(surface);
+                    paper.addChild(viewport);
+                } else paper.addChild(surface);
             }
             spread.addChild(paper);
         }
@@ -388,7 +411,8 @@ public final class BookReaderScreen extends ModularUIScreen {
         if (href.startsWith("book:")) {
             String id = href.substring(5);
             if (access.contains(id) && !access.canRead(id)) {
-                showNotice(BookLocks.message(access, id));
+                modularUI.setHoverTooltip(List.of(BookLocks.message(access, id)),
+                        net.minecraft.world.item.ItemStack.EMPTY, null, null);
                 return;
             }
             for (int i = 0; i < book.pages.size(); i++)

@@ -12,7 +12,7 @@ final class BookLocks {
     private BookLocks() {}
 
     static Component hint(BookPageAccess access, String pageId) {
-        String hint = access.unlockHint(pageId);
+        String hint = String.join("\n", access.unlockHint(pageId));
         return hint.isBlank() ? Component.translatable("gui.betterbook.page_unlock_hint")
                 : Component.literal(hint);
     }

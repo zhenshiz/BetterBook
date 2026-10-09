@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.List;
 
 class BookPageAccessTest {
     private Book book() {
@@ -15,7 +16,7 @@ class BookPageAccessTest {
         var document = RichDocument.parse("<p>Page</p>", StandardSchema.create());
         book.pages.add(new Book.Page("open", "Open", document));
         book.pages.add(new Book.Page("locked", "Locked", document, "Finish intro"));
-        book.requiredStages.put("locked", "intro");
+        book.requiredStages.put("locked", List.of("intro"));
         return book;
     }
 
@@ -53,11 +54,11 @@ class BookPageAccessTest {
         Collections.swap(book.pages, 0, 1);
         assertEquals(0, access.index("locked"));
         book.removePage(0);
-        book.requiredStages.put("locked", "stale");
+        book.requiredStages.put("locked", List.of("stale"));
         assertFalse(access.contains("locked"));
         assertFalse(access.canRead("locked"));
         assertEquals(-1, access.index("locked"));
-        assertEquals("", access.unlockHint("locked"));
+        assertEquals(List.of(), access.unlockHint("locked"));
         assertEquals(0, access.index("open"));
     }
 
@@ -69,7 +70,7 @@ class BookPageAccessTest {
             return false;
         });
         for (String stage : new String[] {"", " \t\n", "\u2003", null}) {
-            book.requiredStages.put("locked", stage);
+            book.requiredStages.put("locked", stage == null ? null : List.of(stage));
             assertTrue(access.canRead("locked"));
             assertFalse(access.canRead("missing"));
         }
@@ -80,14 +81,14 @@ class BookPageAccessTest {
         var book = book();
         book.translations.put("zh_cn", new Book.Translation("书籍", "", Map.of()));
         var fallback = new BookPageAccess(book.localized("zh_cn"), stage -> false);
-        assertEquals("Finish intro", fallback.unlockHint("locked"));
+        assertEquals(List.of("Finish intro"), fallback.unlockHint("locked"));
         book.putPage(1, "zh_cn", book.page(1, "zh_cn").withUnlockHint("先完成介绍"));
         var translated = new BookPageAccess(book.localized("zh_cn"), stage -> false);
-        assertEquals("先完成介绍", translated.unlockHint("locked"));
+        assertEquals(List.of("先完成介绍"), translated.unlockHint("locked"));
         assertFalse(translated.canRead("locked"));
-        assertEquals("", translated.unlockHint("open"));
-        assertEquals("", translated.unlockHint("missing"));
-        assertEquals("Finish intro", new BookPageAccess(book, stage -> false).unlockHint("locked"));
+        assertEquals(List.of(), translated.unlockHint("open"));
+        assertEquals(List.of(), translated.unlockHint("missing"));
+        assertEquals(List.of("Finish intro"), new BookPageAccess(book, stage -> false).unlockHint("locked"));
     }
 
     @Test
@@ -100,5 +101,20 @@ class BookPageAccessTest {
         assertTrue(access.canRead("open"));
         assertFalse(access.canRead("locked"));
         assertEquals(1, access.index("locked"));
+    }
+
+    @Test
+    void allRequiredStagesMustBePresentAndRemovingAnyOneLocksThePageAgain() {
+        var book = book();
+        book.requiredStages.put("locked", List.of("intro", "entered_end"));
+        var stages = new HashSet<String>();
+        var access = new BookPageAccess(book, stages::contains);
+        assertFalse(access.canRead("locked"));
+        stages.add("intro");
+        assertFalse(access.canRead("locked"));
+        stages.add("entered_end");
+        assertTrue(access.canRead("locked"));
+        stages.remove("intro");
+        assertFalse(access.canRead("locked"));
     }
 }

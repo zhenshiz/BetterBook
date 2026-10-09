@@ -32,7 +32,6 @@ final class BookRelatedPagesView extends UIElement {
     private List<Book.Page> pages = List.of();
     private BookPageAccess access;
     private boolean lockedIcons = true;
-    private Consumer<String> lockedHint = id -> {};
     private String catalogKey = "", selection = "";
     private final Map<String, Button> buttons = new LinkedHashMap<>();
     private Consumer<String> selected = id -> {}, navigate = id -> {};
@@ -86,10 +85,9 @@ final class BookRelatedPagesView extends UIElement {
         if (data != null) rebuild();
     }
 
-    void pageAccess(BookPageAccess access, boolean lockedIcons, Consumer<String> lockedHint) {
+    void pageAccess(BookPageAccess access, boolean lockedIcons) {
         this.access = access;
         this.lockedIcons = lockedIcons;
-        this.lockedHint = lockedHint;
         if (data != null) rebuild();
     }
 
@@ -155,14 +153,9 @@ final class BookRelatedPagesView extends UIElement {
                     .gapAll(2);
             if (!available) button.addClass("book-related-missing");
             if (locked) button.addClass("book-related-locked");
-            if (locked) {
-                button.addEventListener(UIEvents.MOUSE_ENTER, e -> lockedHint.accept(entry.target));
-                button.addEventListener(UIEvents.TICK, e -> {
-                    if (button.isSelfOrChildHover()) lockedHint.accept(entry.target);
-                });
-            } else button.getStyle()
+            button.getStyle()
                     .tooltips(
-                            available
+                            locked ? BookLocks.message(access, entry.target) : available
                                     ? Component.translatable(
                                             "gui.betterbook.related_page_candidate",
                                             pageIndex + 1,

@@ -1,6 +1,6 @@
 package com.zhenshiz.betterbook.core;
 
-import java.util.Locale;
+import java.util.*;
 
 /** 与游戏运行时无关的阶段名称规范。 */
 public final class StageNames {
@@ -19,5 +19,22 @@ public final class StageNames {
         if (!normalized.matches("[a-z0-9_][a-z0-9_./:-]{0,127}"))
             throw new IllegalArgumentException("Invalid stage name: " + value);
         return normalized;
+    }
+
+    /**
+     * 规范化阶段列表，忽略空白条目并按首次出现的顺序去重。
+     *
+     * @param values 阶段名称列表；空列表表示无需阶段
+     * @return 不可变的规范名称列表
+     * @throws IllegalArgumentException 列表为空引用或包含无效名称时抛出
+     */
+    public static List<String> normalizeAll(List<String> values) {
+        if (values == null) throw new IllegalArgumentException("Stage list is required");
+        var stages = new LinkedHashSet<String>();
+        for (String value : values) {
+            if (value != null && value.isBlank()) continue;
+            stages.add(normalize(value));
+        }
+        return List.copyOf(stages);
     }
 }

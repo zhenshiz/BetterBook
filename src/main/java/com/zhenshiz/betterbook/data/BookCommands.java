@@ -129,9 +129,8 @@ public final class BookCommands {
 
     private static Optional<TextCommand> authorize(
             Book book, ServerPlayer player, String pageId, Optional<TextCommand> action) {
-        String required = book.requiredStages.get(pageId);
         // 命中后直接拒绝，不能继续从另一份旧书查找同一个绑定来绕过阶段要求。
-        return required == null || required.isBlank() || BetterBookStages.has(player, required)
+        return new BookPageAccess(book, stage -> BetterBookStages.has(player, stage)).canRead(pageId)
                 ? action
                 : Optional.empty();
     }

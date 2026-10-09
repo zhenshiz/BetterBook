@@ -11,6 +11,7 @@ import com.zhenshiz.betterbook.core.StageNames;
 
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -51,13 +52,18 @@ public final class StageCommands {
 
     private static LiteralArgumentBuilder<CommandSourceStack> mutation(
             String command, boolean add) {
+        var stage = Commands.argument("stage", StringArgumentType.greedyString())
+                .executes(context -> change(context, add));
+        if (!add) stage.suggests((context, builder) -> {
+            var existing = new java.util.TreeSet<String>();
+            for (var player : EntityArgument.getPlayers(context, "players"))
+                existing.addAll(BetterBookStages.list(player));
+            return SharedSuggestionProvider.suggest(existing, builder);
+        });
         return Commands.literal(command)
                 .then(
                         Commands.argument("players", EntityArgument.players())
-                                .then(
-                                        Commands.argument(
-                                                        "stage", StringArgumentType.greedyString())
-                                                .executes(context -> change(context, add))));
+                                .then(stage));
     }
 
     private static int change(CommandContext<CommandSourceStack> context, boolean add)

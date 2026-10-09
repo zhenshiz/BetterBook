@@ -36,7 +36,7 @@ public final class BetterBook {
     }
 
     public BetterBook(net.neoforged.bus.api.IEventBus bus) {
-        com.zhenshiz.betterbook.data.BookItems.register(bus);
+        BookItems.register(bus);
         BookMenus.register();
     }
 }

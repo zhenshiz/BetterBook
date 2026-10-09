@@ -50,16 +50,6 @@ public final class RichSurface extends TextElement implements AutoCloseable {
     private Consumer<com.zhenshiz.betterbook.data.BookRelatedPages> relatedChanged = data -> {};
     private Book navigationBook;
     private BookPageAccess pageAccess;
-    private Consumer<String> lockedPageHint = id -> {};
-
-    /**
-     * 将锁定入口的悬停提示交给阅读器统一显示。
-     *
-     * @param handler 接收目标页面 ID 的提示回调
-     */
-    public void onLockedPageHint(Consumer<String> handler) {
-        lockedPageHint = handler;
-    }
 
     /**
      * 将书内链接和入口的显示绑定到读者的页面访问条件。
@@ -191,7 +181,8 @@ public final class RichSurface extends TextElement implements AutoCloseable {
         addEventListener(
                 UIEvents.MOUSE_WHEEL,
                 e -> {
-                    setScroll(scroll - e.deltaY * 24);
+                    // 保留触控板的小幅输入，避免高灵敏度滚轮一次跳过整组内容。
+                    setScroll(scroll - Math.clamp(e.deltaY, -1, 1) * 16);
                     e.stopPropagation();
                 });
         addEventListener(
@@ -405,7 +396,7 @@ public final class RichSurface extends TextElement implements AutoCloseable {
                 if (view instanceof BookRelatedPagesView related) {
                     related.pages(relatedPages());
                     if (pageAccess != null)
-                        related.pageAccess(pageAccess, navigationBook == null || navigationBook.lockedIcons, lockedPageHint);
+                        related.pageAccess(pageAccess, navigationBook == null || navigationBook.lockedIcons);
                     related.highlight(selectedRelatedEntry);
                     related.callbacks(
                             entry -> {
@@ -1223,7 +1214,9 @@ public final class RichSurface extends TextElement implements AutoCloseable {
             if (lockedLink && isSelfOrChildHover()
                     && c.localMouseX >= gx && c.localMouseX < gx + g.width()
                     && c.localMouseY >= gy && c.localMouseY < gy + g.height())
-                lockedPageHint.accept(g.href().substring(5));
+                getModularUI().setHoverTooltip(
+                        List.of(BookLocks.message(pageAccess, g.href().substring(5))),
+                        net.minecraft.world.item.ItemStack.EMPTY, null, null);
             if (renderedBlock != g.block()) {
                 renderedBlock = g.block();
                 blockColor = color;

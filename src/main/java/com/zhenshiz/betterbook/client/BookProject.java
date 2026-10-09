@@ -63,9 +63,7 @@ public final class BookProject implements IProject {
 
     @Override
     public void deserializeProject(HolderLookup.Provider provider, CompoundTag tag) {
-        var data = new BookData();
-        data.deserializeNBT(provider, tag);
-        session = new BookSession(data.toBook(extensions.schema));
+        session = new BookSession(BookData.load(provider, tag).toBook(extensions.schema));
         String language = Minecraft.getInstance().options.languageCode;
         if (session.book().languages().contains(language)) session.switchLanguage(language);
     }

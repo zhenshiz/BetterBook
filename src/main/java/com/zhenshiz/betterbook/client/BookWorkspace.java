@@ -1526,25 +1526,11 @@ public final class BookWorkspace implements AutoCloseable {
         d.contentContainer.getLayout().minHeight(0).flexShrink(1);
         var scroll = new ScrollerView();
         scroll.getLayout().widthPercent(100).height(250).minHeight(0).minWidth(0).flexShrink(1);
-        var fields = new UIElement();
-        fields.getLayout().widthPercent(100).minWidth(0).gapAll(4).paddingAll(3);
-        fields.addChild(new Label().setText("gui.betterbook.page_stage"));
-        var stage = new TextField();
-        stage.setId("page-stage-input");
-        stage.getLayout().widthPercent(100).height(20).minWidth(0).flexShrink(0);
-        stage.setValue(session.book().requiredStages.getOrDefault(session.page().id(), ""), false);
-        fields.addChild(stage);
-        fields.addChild(pageAccessHint("page_stage_hint"));
-        fields.addChild(new Label().setText("gui.betterbook.page_unlock_hint_label"));
-        var hint = new TextArea();
-        hint.setId("page-unlock-hint-input");
-        hint.getLayout().widthPercent(100).height(60).minWidth(0).flexShrink(0);
-        hint.setValue(session.page().unlockHint().split("\n", -1), false);
-        hint.textAreaStyle(
-                style -> style.placeholder(Component.translatable("gui.betterbook.page_unlock_hint")));
-        fields.addChild(hint);
-        fields.addChild(pageAccessHint("page_unlock_hint_help"));
-        fields.addChild(pageAccessHint("preview_stage_hint"));
+        var settings = new PageAccessSettings(session);
+        var fields = new ConfiguratorGroup("", false).hideTitle();
+        fields.setId("page-access-fields");
+        settings.buildConfigurator(fields);
+        fields.getLayout().widthPercent(100).minWidth(0).paddingAll(3);
         scroll.addScrollViewChild(fields);
         d.addContent(scroll);
         d.addButton(
@@ -1554,14 +1540,14 @@ public final class BookWorkspace implements AutoCloseable {
                         () -> {
                             try {
                                 session.setPageAccess(
-                                        stage.getValue(), String.join("\n", hint.getValue()));
+                                        settings.stages, settings.unlockHint);
                                 d.close();
                             } catch (IllegalArgumentException failure) {
                                 editor.error(
                                         new IllegalArgumentException(
                                                 Component.translatable(
                                                                 "gui.betterbook.page_stage_invalid",
-                                                                stage.getValue())
+                                                                settings.stages)
                                                         .getString(),
                                                 failure));
                             } catch (Exception failure) {
@@ -1570,16 +1556,6 @@ public final class BookWorkspace implements AutoCloseable {
                         }));
         d.addButton(button("cancel", "page-access-cancel", d::close));
         d.show(editor.getModularUI());
-        stage.focus();
-    }
-
-    private Label pageAccessHint(String key) {
-        var hint = new Label();
-        hint.setText("gui.betterbook." + key);
-        hint.getLayout().widthPercent(100).minWidth(0).heightAuto().flexShrink(0);
-        hint.textStyle(
-                style -> style.adaptiveWidth(false).adaptiveHeight(true).textWrap(TextWrap.WRAP));
-        return hint;
     }
 
     private int indexOf(String id) {

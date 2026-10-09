@@ -14,7 +14,9 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 
-/** 通过 LDLib2 玩家菜单打开编辑器，服务端只持有菜单生命周期。 */
+/**
+ * 通过 LDLib2 玩家菜单打开编辑器，服务端只持有菜单生命周期。
+ */
 @EventBusSubscriber(modid = BetterBook.ID)
 public final class BookMenus {
     public static final ResourceLocation EDITOR =
@@ -22,9 +24,12 @@ public final class BookMenus {
     public static final ResourceLocation BINDING =
             ResourceLocation.fromNamespaceAndPath(BetterBook.ID, "binding");
 
-    private BookMenus() {}
+    private BookMenus() {
+    }
 
-    /** 注册两端共用的菜单标识；客户端负责构建 VSL 编辑窗口。 */
+    /**
+     * 注册两端共用的菜单标识；客户端负责构建 VSL 编辑窗口。
+     */
     public static void register() {
         PlayerUIMenuType.register(
                 EDITOR,
@@ -40,7 +45,7 @@ public final class BookMenus {
                         player ->
                                 player.level().isClientSide
                                         ? com.zhenshiz.betterbook.client.BookBindingPanel.create(
-                                                player)
+                                        player)
                                         : new ModularUI(UI.empty(), player));
     }
 
@@ -59,9 +64,9 @@ public final class BookMenus {
                                                 .executes(
                                                         context ->
                                                                 PlayerUIMenuType.openUI(
-                                                                                context.getSource()
-                                                                                        .getPlayerOrException(),
-                                                                                EDITOR)
+                                                                        context.getSource()
+                                                                                .getPlayerOrException(),
+                                                                        EDITOR)
                                                                         ? 1
                                                                         : 0)
                                                 .then(

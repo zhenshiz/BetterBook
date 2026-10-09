@@ -399,13 +399,13 @@ public final class BookSession {
     /**
      * 在一个可撤销事务中设置当前页面的共用阶段要求和当前语言提示。
      *
-     * @param stage 阶段名称字符串；空白字符串移除阶段要求
-     * @param hint 当前语言的提示字符串；空白译文提示回退到默认语言
+     * @param stages 阶段名称列表；空列表或全空白条目移除阶段要求
+     * @param hint 当前语言的提示行列表；全空白译文提示回退到默认语言
      * @throws IllegalArgumentException 非空阶段名称不符合阶段命名规则时抛出
      */
-    public void setPageAccess(String stage, String hint) {
-        String normalized = stage != null && stage.isBlank() ? "" : StageNames.normalize(stage);
-        String text = Objects.requireNonNullElse(hint, "");
+    public void setPageAccess(List<String> stages, List<String> hint) {
+        var normalized = StageNames.normalizeAll(stages);
+        var text = hint == null ? List.<String>of() : List.copyOf(hint);
         String pageId = page().id();
         boolean sameStage =
                 normalized.isEmpty()
@@ -418,6 +418,18 @@ public final class BookSession {
                     else book.requiredStages.put(pageId, normalized);
                     putPage(page().withUnlockHint(text));
                 });
+    }
+
+    /**
+     * 将原有单阶段设置转换为列表，并保留提示中的换行。
+     *
+     * @param stage 阶段名称字符串；空白字符串表示不限制阅读
+     * @param hint 提示字符串，允许为空引用
+     * @throws IllegalArgumentException 阶段名称为空引用或无效时抛出
+     */
+    public void setPageAccess(String stage, String hint) {
+        if (stage == null) throw new IllegalArgumentException("Stage name is required");
+        setPageAccess(List.of(stage), Book.hintLines(hint));
     }
 
     public void renamePage(String title) {
@@ -463,24 +475,24 @@ public final class BookSession {
     }
 
     /** 一页的剪贴板内容；正文和已解析提示的快照不会被后续编辑改变。 */
-    public record PageText(String title, String html, String unlockHint) {
+    public record PageText(String title, String html, List<String> unlockHint) {
         public PageText {
-            unlockHint = Objects.requireNonNullElse(unlockHint, "");
+            unlockHint = unlockHint == null ? List.of() : List.copyOf(unlockHint);
         }
 
         public PageText(String title, String html) {
-            this(title, html, "");
+            this(title, html, List.of());
         }
     }
 
-    public record PageCopy(String defaultLanguage, Map<String, PageText> languages, String stage) {
+    public record PageCopy(String defaultLanguage, Map<String, PageText> languages, List<String> stages) {
         public PageCopy {
             languages = Map.copyOf(languages);
-            stage = stage.isBlank() ? "" : StageNames.normalize(stage);
+            stages = StageNames.normalizeAll(stages);
         }
 
         public PageCopy(String defaultLanguage, Map<String, PageText> languages) {
-            this(defaultLanguage, languages, "");
+            this(defaultLanguage, languages, List.of());
         }
     }
 
@@ -495,7 +507,7 @@ public final class BookSession {
                             p.title(), p.document().html(), book.unlockHint(p.id(), locale)));
         }
         return new PageCopy(
-                book.defaultLanguage, content, book.requiredStages.getOrDefault(page().id(), ""));
+                book.defaultLanguage, content, book.requiredStages.getOrDefault(page().id(), List.of()));
     }
 
     public void pastePage(PageCopy copy) {
@@ -517,7 +529,7 @@ public final class BookSession {
                 () -> {
                     var fallback = parsed.get(copy.defaultLanguage());
                     book.pages.add(page + 1, parsed.getOrDefault(book.defaultLanguage, fallback));
-                    if (!copy.stage().isEmpty()) book.requiredStages.put(id, copy.stage());
+                    if (!copy.stages().isEmpty()) book.requiredStages.put(id, copy.stages());
                     page++;
                     for (String locale : parsed.keySet()) {
                         if (!book.languages().contains(locale))

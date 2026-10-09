@@ -4,13 +4,17 @@ import java.util.*;
 
 /** 与客户端渲染无关的书籍内容。页面 ID 和顺序共用，译文按语言分别保存。 */
 public final class Book {
-    public record Page(String id, String title, RichDocument document, String unlockHint) {
+    public record Page(String id, String title, RichDocument document, List<String> unlockHint) {
         public Page {
-            unlockHint = Objects.requireNonNullElse(unlockHint, "");
+            unlockHint = unlockHint == null ? List.of() : List.copyOf(unlockHint);
         }
 
         public Page(String id, String title, RichDocument document) {
-            this(id, title, document, "");
+            this(id, title, document, List.of());
+        }
+
+        public Page(String id, String title, RichDocument document, String unlockHint) {
+            this(id, title, document, hintLines(unlockHint));
         }
 
         public Page withDocument(RichDocument value) {
@@ -24,11 +28,15 @@ public final class Book {
         /**
          * 创建替换解锁提示的页面，保留页面 ID、标题和文档。
          *
-         * @param value 提示字符串；空白译文提示使用默认语言提示
+         * @param value 提示行列表；全部为空白的译文提示使用默认语言提示
          * @return 替换提示后的页面
          */
-        public Page withUnlockHint(String value) {
+        public Page withUnlockHint(List<String> value) {
             return new Page(id, title, document, value);
+        }
+
+        public Page withUnlockHint(String value) {
+            return withUnlockHint(hintLines(value));
         }
     }
 
@@ -49,7 +57,17 @@ public final class Book {
     public boolean lockedIcons = true;
     public final List<Page> pages = new ArrayList<>();
     public final Map<String, Translation> translations = new LinkedHashMap<>();
-    public final Map<String, String> requiredStages = new LinkedHashMap<>();
+    public final Map<String, List<String>> requiredStages = new LinkedHashMap<>();
+
+    /**
+     * 将兼容接口中的提示字符串拆分成独立行。
+     *
+     * @param value 提示字符串，允许为空引用或空字符串
+     * @return 不可变的提示行列表，保留中间及末尾空行
+     */
+    public static List<String> hintLines(String value) {
+        return value == null || value.isEmpty() ? List.of() : List.of(value.split("\\R", -1));
+    }
 
     public static Book empty(Schema schema) {
         var b = new Book();
@@ -110,16 +128,16 @@ public final class Book {
      *
      * @param pageId 共用的页面 ID 字符串
      * @param language 已规范化的语言代码；不存在时使用默认语言
-     * @return 已解析的提示字符串；页面不存在时为空字符串
+     * @return 已解析的提示行列表；页面不存在时为空列表
      */
-    public String unlockHint(String pageId, String language) {
+    public List<String> unlockHint(String pageId, String language) {
         for (int i = 0; i < pages.size(); i++) {
             var original = pages.get(i);
             if (!original.id().equals(pageId)) continue;
-            String hint = page(i, language).unlockHint();
-            return hint.isBlank() ? original.unlockHint() : hint;
+            var hint = page(i, language).unlockHint();
+            return hint.stream().allMatch(String::isBlank) ? original.unlockHint() : hint;
         }
-        return "";
+        return List.of();
     }
 
     public boolean hasTranslation(int index, String language) {
@@ -263,7 +281,7 @@ public final class Book {
         b.singlePage = singlePage;
         b.allowPageTurning = allowPageTurning;
         b.lockedIcons = lockedIcons;
-        b.requiredStages.putAll(requiredStages);
+        requiredStages.forEach((key, value) -> b.requiredStages.put(key, value == null ? null : List.copyOf(value)));
         for (int i = 0; i < pages.size(); i++) {
             var p = page(i, language);
             var document = p.document().copy();
@@ -284,7 +302,7 @@ public final class Book {
         b.singlePage = singlePage;
         b.allowPageTurning = allowPageTurning;
         b.lockedIcons = lockedIcons;
-        b.requiredStages.putAll(requiredStages);
+        requiredStages.forEach((key, value) -> b.requiredStages.put(key, value == null ? null : List.copyOf(value)));
         b.pages.addAll(pages);
         b.translations.putAll(translations);
         return b;
